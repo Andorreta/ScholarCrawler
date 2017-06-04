@@ -4,12 +4,14 @@ Routes and views for the flask application.
 
 from datetime import datetime
 
-from flask import render_template, redirect, request
+import os
+
+from flask import render_template, redirect, request, render_template_string, jsonify
 
 from ScholarCrawler import app
 from ScholarCrawler.models import PollNotFound
 from ScholarCrawler.models.factory import create_repository
-from ScholarCrawler.settings import REPOSITORY_NAME, REPOSITORY_SETTINGS
+from ScholarCrawler.settings import REPOSITORY_NAME, REPOSITORY_SETTINGS, API_NAME, API_VERSION
 
 repository = create_repository(REPOSITORY_NAME, REPOSITORY_SETTINGS)
 
@@ -23,6 +25,21 @@ def home():
         year=datetime.now().year,
         polls=repository.get_polls(),
     )
+
+@app.route('/api')
+def api_home():
+    """with open(os.path.dirname(os.path.realpath(__file__)) + '/../interface/api.html', 'r') as content_file:
+        content = content_file.read()
+    return render_template_string(content)"""
+    return jsonify({"name" : API_NAME, "version" : API_VERSION})
+
+@app.route('/api/<function>')
+def api_function(function):
+    """with open(os.path.dirname(os.path.realpath(__file__)) + '/../interface/api.html', 'r') as content_file:
+        content = content_file.read()
+    return render_template_string(content)"""
+    return jsonify({"name" : API_NAME, "version" : API_VERSION, "function" : function, "message" : "function in construction"})
+
 
 @app.route('/contact')
 def contact():

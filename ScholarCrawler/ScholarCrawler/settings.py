@@ -19,3 +19,6 @@ elif REPOSITORY_NAME == 'memory':
     REPOSITORY_SETTINGS = {}
 else:
     raise ValueError('Unknown repository.')
+
+API_NAME = "Scholar Crawler API"
+API_VERSION = "0.2"
