@@ -49,6 +49,7 @@
     <Content Include="ScholarCrawler\static\content\bootstrap.css" />
     <Content Include="ScholarCrawler\static\content\bootstrap.min.css" />
     <Content Include="ScholarCrawler\static\content\site.css" />
+    <Content Include="ScholarCrawler\static\favicon.ico" />
     <Content Include="ScholarCrawler\static\fonts\glyphicons-halflings-regular.eot" />
     <Content Include="ScholarCrawler\static\fonts\glyphicons-halflings-regular.svg" />
     <Content Include="ScholarCrawler\static\fonts\glyphicons-halflings-regular.ttf" />

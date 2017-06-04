@@ -27,7 +27,7 @@ def home():
     )
 
 @app.route('/api')
-def api_home():
+def api():
     """with open(os.path.dirname(os.path.realpath(__file__)) + '/../interface/api.html', 'r') as content_file:
         content = content_file.read()
     return render_template_string(content)"""
@@ -67,7 +67,7 @@ def seed():
     return redirect('/')
 
 @app.route('/results')
-def getresults():
+def resultspolls():
     """Renders the polls page, with a list of all polls."""
     return render_template(
         'pollsresult.html',
