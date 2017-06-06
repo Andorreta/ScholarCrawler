@@ -5,12 +5,6 @@ Package for the models.
 from os import path
 import json
 
-class User(object):
-    """A user object for use in the repository"""
-    def __init__(self, user=u''):
-        """Initializes an user"""
-        self.user = user
-
 class Poll(object):
     """A poll object for use in the application views and repository."""
     def __init__(self, key=u'', text=u''):

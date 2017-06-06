@@ -26,13 +26,15 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="runserver.py" />
+    <Compile Include="ScholarCrawler\models\mongodb.py" />
+    <Compile Include="ScholarCrawler\models\__init__Sample.py" />
     <Compile Include="ScholarCrawler\__init__.py" />
     <Compile Include="ScholarCrawler\settings.py" />
     <Compile Include="ScholarCrawler\views.py" />
     <Compile Include="ScholarCrawler\models\__init__.py" />
     <Compile Include="ScholarCrawler\models\factory.py" />
     <Compile Include="ScholarCrawler\models\memory.py" />
-    <Compile Include="ScholarCrawler\models\mongodb.py" />
+    <Compile Include="ScholarCrawler\models\mongodbSample.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="ScholarCrawler\" />
@@ -45,6 +47,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="requirements.txt" />
+    <Content Include="ScholarCrawler\models\articleSample.json" />
     <Content Include="ScholarCrawler\models\samples.json" />
     <Content Include="ScholarCrawler\static\content\bootstrap.css" />
     <Content Include="ScholarCrawler\static\content\bootstrap.min.css" />
@@ -76,6 +79,7 @@
     <Content Include="ScholarCrawler\templates\pollsresult.html" />
     <Content Include="ScholarCrawler\templates\polls.html" />
     <Content Include="ScholarCrawler\templates\layout.html" />
+    <Content Include="ScholarCrawler\templates\articles.html" />
     <Content Include="ScholarCrawler\templates\results.html" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.Web.targets" />

@@ -16,10 +16,6 @@ def _choice_from_doc(doc):
     """Creates a choice object from the MongoDB choice subdocument."""
     return Choice(str(doc['id']), doc['text'], doc['votes'])
 
-def _user_from_doc(doc):
-    """Creates a user object from the MongoDB user document."""
-    return User(str(doc['_id']), doc['text'])
-
 class Repository(object):
     """MongoDB repository."""
     def __init__(self, settings):
@@ -34,14 +30,6 @@ class Repository(object):
         self.client = MongoClient(self.host)
         self.database = self.client[settings['MONGODB_DATABASE']]
         self.collection = self.database[settings['MONGODB_COLLECTION']]
-
-    def get_users(self):
-        """Returns all the polls from the repository."""
-        self.database = self.client['ScholarSettings']
-        self.collection = self.database['Users ']
-        docs = self.collection.find()
-        users = [_user_from_doc(doc) for doc in docs]
-        return users
 
     def get_polls(self):
         """Returns all the polls from the repository."""
@@ -78,9 +66,9 @@ class Repository(object):
         except(InvalidId, ValueError):
             raise PollNotFound()
 
-    def add_sample_articles(self):
+    def add_sample_polls(self):
         """Adds a set of polls from data stored in a samples.json file."""
-        for sample_articles in _load_sample_article():
+        for sample_poll in _load_samples_json():
             choices = []
             choice_id = 0
             for sample_choice in sample_poll['choices']:

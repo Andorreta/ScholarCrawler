@@ -24,6 +24,7 @@ def home():
         title='Google Scholar Crawler',
         year=datetime.now().year,
         polls=repository.get_polls(),
+        users=repository.get_users(),
     )
 
 @app.route('/api')
@@ -43,7 +44,7 @@ def api_function(function):
 
 @app.route('/contact')
 def contact():
-    """Renders the contact page."""
+    #Renders the contact page.
     return render_template(
         'contact.html',
         title='Contact',
@@ -52,7 +53,7 @@ def contact():
 
 @app.route('/about')
 def about():
-    """Renders the about page."""
+    #Renders the about page.
     return render_template(
         'about.html',
         title='About',
@@ -60,15 +61,20 @@ def about():
         repository_name=repository.name,
     )
 
+"""@app.route('/seed', methods=['POST'])
+def seed():
+    #Seeds the database with sample polls.
+    repository.add_sample_polls()
+    return redirect('/')"""
 @app.route('/seed', methods=['POST'])
 def seed():
-    """Seeds the database with sample polls."""
-    repository.add_sample_polls()
+    #Seeds the database with sample articles.
+    repository.add_sample_articles()
     return redirect('/')
 
 @app.route('/results')
 def resultspolls():
-    """Renders the polls page, with a list of all polls."""
+    #Renders the polls page, with a list of all polls.
     return render_template(
         'pollsresult.html',
         title='Polls list',
@@ -76,10 +82,36 @@ def resultspolls():
         polls=repository.get_polls(),
     )
 
+@app.route('/login', methods=['POST'])
+def login():
+    #Seeds the database with sample articles.
+    return redirect('/')
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    #Seeds the database with sample articles.
+    return redirect('/')
+
+@app.route('/signin', methods=['POST'])
+def signin():
+    #Seeds the database with sample articles.
+    return redirect('/')
+
+"""@app.route('/results/<key>')
+def results(key):
+    #Renders the results page.
+    poll = repository.get_poll(key)
+    poll.calculate_stats()
+    return render_template(
+        'results.html',
+        title='Results',
+        year=datetime.now().year,
+        poll=poll,
+    )"""
 @app.route('/results/<key>')
 def results(key):
-    """Renders the results page."""
-    poll = repository.get_poll(key)
+    #Renders the results page.
+    article = repository.get_poll(key) #TODO Cambias esto
     poll.calculate_stats()
     return render_template(
         'results.html',
