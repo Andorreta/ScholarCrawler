@@ -7,6 +7,8 @@
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='content/bootstrap.min.css') }}" />
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='content/site.css') }}" />
     <link rel="shortcut icon" type="text/css" href="{{ url_for('static', filename='favicon.ico') }}" />
+
+    <!-- Scripts for the html -->
     <script src="{{ url_for('static', filename='scripts/modernizr-2.6.2.js') }}"></script>
 </head>
 
@@ -14,7 +16,7 @@
     <div class="navbar navbar-inverse navbar-fixed-top">
         {% set active_page = active_page|default('home') -%}
         <div class="container">
-             <!-- Brand and toggle get grouped for better mobile display -->
+            <!-- Brand and toggle get grouped for better mobile display -->
             <div class="navbar-header">
                 <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
                     <span class="icon-bar"></span>
@@ -27,56 +29,99 @@
             <div class="navbar-collapse collapse">
                 <ul class="nav navbar-nav">
                     <li><a id="home" href="{{url_for('home')}}">Home</a></li>
-                    <li><a id="polls" href="{{url_for('polls')}}">Polls</a></li>
-                    <li><a id="resultspolls" href="{{url_for('resultspolls')}}">Results</a></li>
+                    {% if session.logged %}
+                        <li><a id="articles" href="{{url_for('articles')}}">Articles</a></li>
+                    {% endif %}
                     <li><a id="about" href="{{url_for('about')}}">About</a></li>
                     <li><a id="contact" href="{{url_for('contact')}}">Contact</a></li>
                     <li><a id="api" href="{{url_for('api')}}">Api</a></li>
                 </ul>
                 <ul class="nav navbar-nav navbar-right">
                     <!-- Set the logged in options -->
-                    <li><a id="logout" href="{{url_for('logout')}}" style="visibility:hidden">Log out</a></li>
-                    <li class="dropdown">
-                        <a href="#" class="dropdown-toggle" data-toggle="dropdown"><b>Login</b> <span class="caret"></span></a>
-                        <ul id="login-dp" class="dropdown-menu">
-                            <li>
-					            <div class="row">
-							        <div class="col-md-12">
-                                        <!-- Set the logged out options -->
-                                        <!--<a id="login" href="{{url_for('login')}}">Log in</a>-->
-                                        <form class="form" role="form" method="post" action="login" accept-charset="UTF-8" id="login-nav">
-										    <div class="form-group">
-											     <label class="sr-only" for="exampleInputEmail2">Email address</label>
-											     <input type="email" class="form-control" id="exampleInputEmail2" placeholder="Email address" required>
-										    </div>
-										    <div class="form-group">
-											     <label class="sr-only" for="exampleInputPassword2">Password</label>
-											     <input type="password" class="form-control" id="exampleInputPassword2" placeholder="Password" required>
-                                                 <div class="help-block text-right"><a href="#">Forgot the password ?</a></div>
-										    </div>
-										    <div class="form-group">
-											     <button type="submit" class="btn btn-primary btn-block">Sign in</button>
-										    </div>
-										    <div class="checkbox">
-											     <label>
-											     <input type="checkbox"> keep me logged-in
-											     </label>
-										    </div>
-								        </form>
-							        </div>
-							        <div class="bottom text-center">
-								        New here ? <a id="signin" href="{{url_for('signin')}}">Sign in</a>
+                    {% if session.logged %}
+                        <li><a class="btn btn-primary btn-block" id="extract-btn" href="{{url_for('extract')}}">Extraction</a></li>
+                        <li><a id="settings" href="{{url_for('settings')}}">Settings</a></li>
+                        <li id="logout"><a href="{{url_for('logout')}}"><b>Log&nbsp;out</b></a></li>
+                    {% else %}
+                        <li id="login" class="dropdown">
+                            <a href="#" class="dropdown-toggle" data-toggle="dropdown"><b id="login-dp-button-text">Login</b> <span class="caret"></span></a>
+                            <ul id="login-dp" class="dropdown-menu">
+                                <li>
+					                <div id="login-div" class="row">
+							            <div class="col-md-12">
+                                            <!-- Set the Sign in options -->
+                                            <form class="form" role="form" method="post" action="{{url_for('login')}}" accept-charset="UTF-8" id="login-nav">
+										        <div class="form-group">
+											        <label class="sr-only" for="exampleInputEmail2">Email address</label>
+											        <input type="email" class="form-control" id="emailSigninInput" placeholder="Email address" name="emailSigninInput" value="{{request.form.emailSigninInput}}" required>
+										        </div>
+										        <div class="form-group">
+											        <label class="sr-only" for="exampleInputPassword2">Password</label>
+											        <input type="password" class="form-control" id="passwordSiginInput" placeholder="Password" name="passwordSigninInput" value="{{request.form.passwordSigninInput}}" required>
+                                                    <div class="help-block text-right"><a href="#">Forgot the password ?</a></div>
+										        </div>
+										        <div class="checkbox">
+											        <label>
+											        <input type="checkbox"> keep me logged-in
+											        </label>
+										        </div>
+                                                <div class="form-group">
+											        <button type="submit" class="btn btn-primary btn-block">Sign&nbsp;in</button>
+										        </div>
+								            </form>
+							            </div>
+							            <div class="bottom text-center">
+                                            New here ? <a id="signuplink" href="#">Sign&nbsp;up</a>
+                                        </div>
                                     </div>
-                                </div>
-                            </li>
-                        </ul>
-                    </li>
+                                    <div id="signup-div" class="row">
+							            <div class="col-md-12">
+                                            <!-- Set the Sign up options -->
+                                            <form class="form" role="form" method="post" action="{{url_for('signup')}}" accept-charset="UTF-8" id="signup-nav">
+                                                <div class="form-group">
+		                                            <label class="sr-only" for="exampleInputName">Full Name</label>
+		                                            <input type="text" class="form-control" id="usernameSignUpInput" placeholder="Full Name" name="usernameSignUpInput" value="{{request.form.usernameSignUpInput}}" required>
+	                                            </div>
+	                                            <div class="form-group">
+		                                            <label class="sr-only" for="exampleInputEmail2">Email address</label>
+		                                            <input type="email" class="form-control" id="emailSignUpInput" placeholder="Email address" name="emailSignUpInput" value="{{request.form.emailSignUpInput}}" required>
+	                                            </div>
+	                                            <div class="form-group">
+		                                            <label class="sr-only" for="exampleInputPassword2">Password</label>
+		                                            <input type="password" class="form-control" id="passwordSignUpInput" placeholder="Password" name="passwordSignUpInput" value="{{request.form.passwordSignUpInput}}" required>
+	                                            </div>
+	                                            <div class="form-group">
+		                                            <label class="sr-only" for="exampleInputPassword2">Confirm Password</label>
+		                                            <input type="password" class="form-control" id="passwordSignUpInput2" placeholder="Confirm Password" name="passwordSignUpInput2" value="{{request.form.password2SignUpInput}}" required>
+	                                            </div>
+                                                <div class="form-group">
+		                                            <button type="submit" class="btn btn-primary btn-block">Sign&nbsp;up</button>
+	                                            </div>
+                                            </form>
+							            </div>
+							            <div class="bottom text-center">
+                                            Already an User ? <a id="loginlink" href="#">Log&nbsp;in</a>
+                                        </div>
+                                    </div>
+                                </li>
+                            </ul>
+                        </li>
+                    {% endif %}
                 </ul>
             </div>
         </div>
     </div>
 
     <div class="container body-content">
+        <!-- Messages -->
+        {% for message in get_flashed_messages() %}
+            <div class="alert alert-warning alert-dismissable" role="alert">
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                {{ message }}
+            </div>
+        {% endfor %}
+
+        <!-- Page content -->
         {% block content %}{% endblock %}
         <hr />
         <footer>
@@ -87,12 +132,53 @@
     <script src="{{ url_for('static', filename='scripts/jquery-1.10.2.js') }}"></script>
     <script src="{{ url_for('static', filename='scripts/bootstrap.js') }}"></script>
     <script src="{{ url_for('static', filename='scripts/respond.js') }}"></script>
+
+    <!-- Helper scripts to aid in the correct page visualization -->
     <script>
+        // Set as active the current tab //
         $(document).ready(function () {
             $("#{{request.endpoint}}").parent().addClass("active");
-        })
-    </script>
-    {% block scripts %}{% endblock %}
+            {% if not session.logged %}
 
+            // On Click SignUp It Will Hide Login Form and Display Registration Form //
+            $('#signuplink').click(function (e) {
+                // Stop the click propagation when clicking the login popup mode changer link //
+                e.stopPropagation();
+
+                $("#login-div").slideUp("normal", function () {
+                    $("#signup-div").slideDown("slow");
+                });
+
+                $("#login-dp-button-text").text("Sign up");
+            });
+
+            // On Click SignIn It Will Hide Registration Form and Display Login Form //
+            $('#loginlink').click(function (e) {
+                e.stopPropagation();
+
+                $("#signup-div").slideUp("normal", function () {
+                    $("#login-div").slideDown("slow");
+                });
+
+                $("#login-dp-button-text").text("Login");
+            });
+
+            // Set the password confirmation check //
+            window.onload = function () {
+                document.getElementById("passwordSignUpInput").onchange = validatePassword;
+                document.getElementById("passwordSignUpInput2").onchange = validatePassword;
+            };
+
+            function validatePassword() {
+                var pass2 = document.getElementById("passwordSignUpInput2").value;
+                var pass1 = document.getElementById("passwordSignUpInput").value;
+                if (pass1 !== pass2)
+                    document.getElementById("passwordSignUpInput2").setCustomValidity("Passwords don't match");
+                else
+                    document.getElementById("passwordSignUpInput2").setCustomValidity('');
+            }
+            {% endif %}
+        });
+    </script>
 </body>
 </html>

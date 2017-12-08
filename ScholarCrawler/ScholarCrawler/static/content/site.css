@@ -47,12 +47,25 @@ input[type="checkbox"].input-validation-error {
 }
 
 
-/* Persona style modifications zone start */
+/* Personal style modifications zone start */
 
 .navbar-toggle {
     float: left;
     margin-left: 15px;
 }
+
+#signup-div {
+    display:none
+}
+
+#extract-btn {
+    color: #fff;
+}
+
+    #extract-btn:hover, #extract-btn:focus {
+        background-color: #41a2ec;
+        border-color: #357ebd;
+    }
 
 #login-dp {
     min-width: 250px;

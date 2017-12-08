@@ -1,24 +1,53 @@
+<head>
+    <style type="text/css">
+        .auto-style1 {
+            width: 150px;
+        }
+    </style>
+</head>
 {% extends "layout.html" %}
 
 {% block content %}
 
-<h2>{{poll.text}}</h2>
-<br />
+<h1>{{title}}:</h1>
 
-{% for choice in poll.choices %}
-<div class="row">
-    <div class="col-sm-5">{{choice.text}}</div>
-    <div class="col-sm-5">
-        <div class="progress">
-            <div class="progress-bar" role="progressbar" aria-valuenow="{{choice.votes}}" aria-valuemin="0" aria-valuemax="{{poll.total_votes}}" style="width: {{choice.votes_percentage}}%;">
-                {{choice.votes}}
-            </div>
-        </div>
-    </div>
-</div>
-{% endfor %}
-
-<br />
-<a class="btn btn-primary" href="/poll/{{poll.key}}">Vote again?</a>
+{% if articles %}
+    <table class="table table-hover">
+        <tbody>
+            {% for article in articles %}
+            <tr>
+                <td>
+                    <h3>{{article.title}}</h3>
+                    <table>
+                        <tbody>
+                            <tr>
+                                <td class="auto-style1">
+                                    <span> <b>Authors: </b>
+                                    {% for author in article.authors %}
+                                        {{author}}
+                                    {% endfor %}
+                                    </span><br/>
+                                    <span><b>Date: </b>{{article.date}}</span><br/>
+                                    <span><b>Quotes: </b>{{article.quotes}}</span><br/>
+                                    <span><b>Versions: </b>{{article.versions}}</span><br/>
+                                    <a href="{{article.source}}">Source</a>
+                                    <br/>
+                                    <a href="{{article.related}}">Related Articles</a>
+                                </td>
+                                <td>
+                                    <span>{{article.description}}</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>No articles available.</p>
+    <br />
+{% endif %}
 
 {% endblock %}

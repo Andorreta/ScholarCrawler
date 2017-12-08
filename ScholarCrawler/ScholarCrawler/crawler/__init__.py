@@ -2,9 +2,10 @@
 Package for the crawler.
 """
 
-import json, urllib3, re, time
+import urllib3
+import re
+import time
 from random import randint
-from os import path
 from flask import jsonify
 from urllib.parse import urlencode
 from bs4 import BeautifulSoup
@@ -12,6 +13,7 @@ from bs4 import BeautifulSoup
 from ScholarCrawler.models import DataNotFound
 from ScholarCrawler.models.factory import create_database_connection
 from ScholarCrawler.settings import REPOSITORY_NAME, REPOSITORY_SETTINGS, API_NAME, API_VERSION
+
 
 class Crawler(object):
     # Disable urllib3 insecure connection warnings
@@ -31,37 +33,38 @@ class Crawler(object):
     def extract(self):
         pages = 1
         articles = []
-        data = []
-        query = urlencode({'q' : '"' + self.scholarUser + '"', 'hl': 'en', 'btnG': 'Search Scholar', 'as_sdt': '0,5', 'as_sdtp': '', 'lookup': '0'})
+        query = urlencode({'q': '"' + self.scholarUser + '"', 'hl': 'en', 'btnG': 'Search Scholar', 'as_sdt': '0,5',
+                           'as_sdtp': '', 'lookup': '0'})
         url = 'https://scholar.google.com/scholar?' + query
         print('\nScholar main page Crawler for: ' + self.scholarUser + '\n')  # Test
-        while (url != '' and len(articles) < 10):
-            html_source = self.extract_page(url) # Extract a page
+        while url != '' and len(articles) < 500: # Limit the number of articles to make some tests
+            html_source = self.extract_page(url)  # Extract a page
 
             # Save the downloaded data into the HDD
-            with open(self.tempDir + 'page-' + str(pages) + '.html', 'w') as file:
-                file.write(html_source.data)
+            #with open(self.tempDir + 'page-' + str(pages) + '.html', 'w') as file:
+            #    file.write(html_source.data)
 
             # process the downloaded data
             data = self.process_page(html_source.data)
             articles.extend(data)
             # Check if the articles contain the user as author
             if self.has_author(data):
-                url = self.get_next_page_url(html_source.data) # get next page url
-                time.sleep(randint(10, 25)) # Sleep some time (between 10 and 25 seconds) to avoid a captcha page
+                url = self.get_next_page_url(html_source.data)  # get next page url
+                time.sleep(randint(10, 25))  # Sleep some time (between 10 and 25 seconds) to avoid a captcha page
             else:
                 url = ''
             pages = pages + 1
             print('    Articles: ' + str(len(articles)))  # Test
         # Add the articles to the DB
-        if articles != []:
+        if articles is not []:
             db = create_database_connection(REPOSITORY_NAME, REPOSITORY_SETTINGS)
             db.add_new_articles(self.mongoId, articles)
 
         # Zip the extracted data and move it to the extraction DIR
 
         # Return the job statistics
-        return jsonify({"name" : API_NAME, "version" : API_VERSION, "Function" : "extract", "message" : "Process finished", "Articles" : str(len(articles))})
+        return jsonify({"name": API_NAME, "version": API_VERSION, "Function": "extract", "message": "Process finished",
+                        "Articles": str(len(articles))})
 
     # Data extraction
     def extract_page(self, url):
@@ -76,13 +79,14 @@ class Crawler(object):
         for article in articles:
             #print('   Next article: ' + article.get_text())
             data = self.process_article(str(article))
-            if data != None:
+            if data is not None:
                 output.append(data)
         return output
 
-    def process_article(self, articleSource):
-        soup = BeautifulSoup(articleSource, 'html.parser')
-        article = {'articleId':'', 'title':'', 'date':'', 'source':'', 'description':'', 'quotes':0, 'versions':0, 'related':'', 'authors':[]}
+    def process_article(self, article_source):
+        soup = BeautifulSoup(article_source, 'html.parser')
+        article = {'articleId': '', 'title': '', 'date': '', 'source': '', 'description': '', 'quotes': 0,
+                   'versions': 0, 'related': '', 'authors': []}
 
         # Get the Article title
         titles = soup.select('.gs_ri > .gs_rt > a')
@@ -102,9 +106,9 @@ class Crawler(object):
             return None
 
         # Get the article Id
-        articleId = soup.select('.gs_r')
-        if len(articleId) > 0:
-            article['articleId'] = articleId[0]['data-cid']
+        article_id = soup.select('.gs_r')
+        if len(article_id) > 0:
+            article['articleId'] = article_id[0]['data-cid']
 
         # Get the Article description
         descriptions = soup.select('.gs_ri > .gs_rs')
@@ -123,8 +127,8 @@ class Crawler(object):
             article['source'] = source['href']
 
         # Get the article bottom line
-        bottomline = soup.select('.gs_ri > .gs_fl > a')
-        for part in bottomline:
+        bottom_line = soup.select('.gs_ri > .gs_fl > a')
+        for part in bottom_line:
             # Find how many times has been quoted
             regex = re.compile('Cited by\s(\d+)', re.IGNORECASE)
             if regex.match(part.get_text()):
@@ -142,15 +146,15 @@ class Crawler(object):
                 article['versions'] = str(regex.match(part.get_text())[1])
                 continue
 
-        #print('   Article: ' + str(article)) # Test
+        #print('   Article: ' + str(article))  # Test
         return article
 
     def get_next_page_url(self, html_source):
         soup = BeautifulSoup(html_source, 'html.parser')
         url = soup.select('#gs_n td[align~=left] > a')
-        if url != []:
+        if url is not []:
             url = 'https://scholar.google.com' + url[0]['href']
-        print('   Next Url: ' + str(url)) # Test
+        print('   Next Url: ' + str(url))  # Test
         return str(url)
 
     # Check if the article is from the user

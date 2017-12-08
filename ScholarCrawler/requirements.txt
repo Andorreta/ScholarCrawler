@@ -1,3 +1,7 @@
 Flask<1
 pymongo<3
-bs4<4
+urllib3[secure]
+beautifulsoup4
+Flask-Passlib
+Flask-Bcrypt
+flask-mongo-sessions

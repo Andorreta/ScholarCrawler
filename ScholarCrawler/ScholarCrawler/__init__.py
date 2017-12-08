@@ -3,8 +3,12 @@ The flask application package.
 """
 
 from flask import Flask
+from flask_bcrypt import Bcrypt
 
 app = Flask(__name__)
-app.debug = True
+bcrypt = Bcrypt(app)
 
-import ScholarCrawler.views
+# Set the config for the APP
+app.config.from_object('ScholarCrawler.settings.LocalConfig')
+
+from . import views

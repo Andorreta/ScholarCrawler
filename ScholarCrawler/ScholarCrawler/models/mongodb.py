@@ -1,27 +1,19 @@
 """
-Repository of polls that stores data in a MongoDB database.
+Repository that stores data in a MongoDB database.
 """
 
-from bson.objectid import ObjectId, InvalidId
+from bson.objectid import InvalidId
 from pymongo import MongoClient
+from . import User, DataNotFound
 
-from . import Poll, Choice, PollNotFound
-from . import _load_samples_json
-
-def _poll_from_doc(doc):
-    """Creates a poll object from the MongoDB poll document."""
-    return Poll(str(doc['_id']), doc['text'])
-
-def _choice_from_doc(doc):
-    """Creates a choice object from the MongoDB choice subdocument."""
-    return Choice(str(doc['id']), doc['text'], doc['votes'])
 
 def _user_from_doc(doc):
-    """Creates a user object from the MongoDB user document."""
-    return User(str(doc['_id']), doc['text'])
+    # Creates a user object from the MongoDB user document.
+    return User(str(doc['_id']))
 
-class Repository(object):
-    """MongoDB repository."""
+
+class Database(object):
+    # MongoDB database.
     def __init__(self, settings):
         """Initializes the repository with the specified settings dict.
         Required settings are:
@@ -36,65 +28,41 @@ class Repository(object):
         self.collection = self.database[settings['MONGODB_COLLECTION']]
 
     def get_users(self):
-        """Returns all the polls from the repository."""
+        # Returns all the users from the database.
         self.database = self.client['ScholarSettings']
-        self.collection = self.database['Users ']
+        self.collection = self.database['Users']
         docs = self.collection.find()
         users = [_user_from_doc(doc) for doc in docs]
         return users
 
-    def get_polls(self):
-        """Returns all the polls from the repository."""
+    def get_articles(self, user_id):
+        # Returns all the articles related to an user from the database.
+        collection = 'Articles_' + user_id
+        self.database = self.client['DataStorage']
+        self.collection = self.database[collection]
         docs = self.collection.find()
-        polls = [_poll_from_doc(doc) for doc in docs]
-        return polls
+        return docs
 
-    def get_poll(self, poll_key):
-        """Returns a poll from the repository."""
+    def get_user(self, user):
+        # Returns a user from the repository.
         try:
-            doc = self.collection.find_one({"_id": ObjectId(poll_key)})
+            doc = self.collection.find_one({"mail": user})
             if doc is None:
-                raise PollNotFound()
-
-            poll = _poll_from_doc(doc)
-            poll.choices = [_choice_from_doc(choice_doc)
-                            for choice_doc in doc['choices']]
-            return poll
+                return 'userNotFound'
+            else:
+                return doc
         except InvalidId:
-            raise PollNotFound()
+            raise DataNotFound()
 
-    def increment_vote(self, poll_key, choice_key):
-        """Increment the choice vote count for the specified poll."""
+    def add_new_articles(self, user_id, articles):
+        # Adds new articles to the user Collection
+        collection = 'Articles_' + user_id
+        self.database = self.client['DataStorage']
+        self.collection = self.database[collection]
+
+        # Insert the articles to Mongo
         try:
-            self.collection.update(
-                {
-                    "_id": ObjectId(poll_key),
-                    "choices.id": int(choice_key),
-                },
-                {
-                    "$inc": {"choices.$.votes": 1}
-                }
-            )
+            for article in articles:
+                self.collection.update({'articleId': article['articleId']}, article, upsert = True)
         except(InvalidId, ValueError):
-            raise PollNotFound()
-
-    def add_sample_articles(self):
-        """Adds a set of polls from data stored in a samples.json file."""
-        for sample_articles in _load_sample_article():
-            choices = []
-            choice_id = 0
-            for sample_choice in sample_poll['choices']:
-                choice_doc = {
-                    'id': choice_id,
-                    'text': sample_choice,
-                    'votes': 0,
-                }
-                choice_id += 1
-                choices.append(choice_doc)
-
-            poll_doc = {
-                'text': sample_poll['text'],
-                'choices': choices,
-            }
-
-            self.collection.insert(poll_doc)
+            raise DataNotFound()

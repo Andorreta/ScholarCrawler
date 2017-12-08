@@ -26,18 +26,22 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="runserver.py" />
+    <Compile Include="ScholarCrawler\crawler\crawler.py" />
+    <Compile Include="ScholarCrawler\crawler\__init__.py" />
     <Compile Include="ScholarCrawler\models\mongodb.py" />
-    <Compile Include="ScholarCrawler\models\__init__Sample.py" />
     <Compile Include="ScholarCrawler\__init__.py" />
     <Compile Include="ScholarCrawler\settings.py" />
     <Compile Include="ScholarCrawler\views.py" />
     <Compile Include="ScholarCrawler\models\__init__.py" />
     <Compile Include="ScholarCrawler\models\factory.py" />
     <Compile Include="ScholarCrawler\models\memory.py" />
-    <Compile Include="ScholarCrawler\models\mongodbSample.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="ScholarCrawler\" />
+    <Folder Include="ScholarCrawler\crawler\" />
+    <Folder Include="ScholarCrawler\crawler\storage\" />
+    <Folder Include="ScholarCrawler\crawler\storage\extractionTmp\" />
+    <Folder Include="ScholarCrawler\crawler\storage\extraction\" />
     <Folder Include="ScholarCrawler\models\" />
     <Folder Include="ScholarCrawler\static\" />
     <Folder Include="ScholarCrawler\static\content\" />
@@ -47,8 +51,6 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="requirements.txt" />
-    <Content Include="ScholarCrawler\models\articleSample.json" />
-    <Content Include="ScholarCrawler\models\samples.json" />
     <Content Include="ScholarCrawler\static\content\bootstrap.css" />
     <Content Include="ScholarCrawler\static\content\bootstrap.min.css" />
     <Content Include="ScholarCrawler\static\content\site.css" />
@@ -57,6 +59,7 @@
     <Content Include="ScholarCrawler\static\fonts\glyphicons-halflings-regular.svg" />
     <Content Include="ScholarCrawler\static\fonts\glyphicons-halflings-regular.ttf" />
     <Content Include="ScholarCrawler\static\fonts\glyphicons-halflings-regular.woff" />
+    <Content Include="ScholarCrawler\static\scripts\scholar.crawler.js" />
     <Content Include="ScholarCrawler\static\scripts\bootstrap.js" />
     <Content Include="ScholarCrawler\static\scripts\bootstrap.min.js" />
     <Content Include="ScholarCrawler\static\scripts\jquery-1.10.2.intellisense.js" />
@@ -80,7 +83,7 @@
     <Content Include="ScholarCrawler\templates\polls.html" />
     <Content Include="ScholarCrawler\templates\layout.html" />
     <Content Include="ScholarCrawler\templates\articles.html" />
-    <Content Include="ScholarCrawler\templates\results.html" />
+    <Content Include="ScholarCrawler\templates\settings.html" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.Web.targets" />
   <!-- Specify pre- and post-build commands in the BeforeBuild and 

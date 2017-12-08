@@ -6,8 +6,8 @@ Used for testing only.
 from . import Poll, Choice, PollNotFound
 from . import _load_samples_json
 
-class Repository(object):
-    """In-Memory repository."""
+class Database(object):
+    """In-Memory database."""
     def __init__(self, settings):
         """Initializes the repository. Note that settings are not used."""
         self.name = 'In-Memory'
