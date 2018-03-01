@@ -21,7 +21,7 @@ else:
     raise ValueError('Unknown repository.')
 
 API_NAME = "Scholar Crawler API"
-API_VERSION = "0.2"
+API_VERSION = "0.5"
 
 
 class BaseConfig(object):

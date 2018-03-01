@@ -37,7 +37,7 @@ class Crawler(object):
                            'as_sdtp': '', 'lookup': '0'})
         url = 'https://scholar.google.com/scholar?' + query
         print('\nScholar main page Crawler for: ' + self.scholarUser + '\n')  # Test
-        while url != '' and len(articles) < 500: # Limit the number of articles to make some tests
+        while url != '' and len(articles) < 5: # Limit the number of articles to make some tests
             html_source = self.extract_page(url)  # Extract a page
 
             # Save the downloaded data into the HDD

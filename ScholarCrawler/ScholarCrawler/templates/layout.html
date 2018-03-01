@@ -10,6 +10,22 @@
 
     <!-- Scripts for the html -->
     <script src="{{ url_for('static', filename='scripts/modernizr-2.6.2.js') }}"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+    
+    {% if session.logged %}
+    <!--<script type="text/javascript">
+        $(function () {
+            $('a#extract-btn').bind('click', function () {
+                $.getJSON("{{url_for('extract')}}"), {
+
+                }, function (data) {
+
+                });
+                return false;
+            });
+        });
+    </script>-->
+    {% endif %}
 </head>
 
 <body>
@@ -40,6 +56,7 @@
                     <!-- Set the logged in options -->
                     {% if session.logged %}
                         <li><a class="btn btn-primary btn-block" id="extract-btn" href="{{url_for('extract')}}">Extraction</a></li>
+                        <!--<li><a class="btn btn-primary btn-block" id="extract-btn" href="#">Extraction</a></li>-->
                         <li><a id="settings" href="{{url_for('settings')}}">Settings</a></li>
                         <li id="logout"><a href="{{url_for('logout')}}"><b>Log&nbsp;out</b></a></li>
                     {% else %}
@@ -129,7 +146,6 @@
         </footer>
     </div>
 
-    <script src="{{ url_for('static', filename='scripts/jquery-1.10.2.js') }}"></script>
     <script src="{{ url_for('static', filename='scripts/bootstrap.js') }}"></script>
     <script src="{{ url_for('static', filename='scripts/respond.js') }}"></script>
 
