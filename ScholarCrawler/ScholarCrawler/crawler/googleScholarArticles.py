@@ -2,74 +2,66 @@
 Package for the crawler.
 """
 
-from crawler.crawler_general import Crawler
+from .crawlerGeneral import *
 
-class GoogleScholar(Crawler):
-    # Disable urllib3 insecure connection warnings
-    urllib3.disable_warnings()
+import re
+import shutil
+from requests import cookies
 
-    # Extraction class to get the data user = system user
-    def __init__(self, user):
-        self.userArr = user
-        self.mongoId = user['id']
-        self.user = user['user']
-        self.scholarUser = user['scholarUser']
-        self.scholarAliases = user['scholarAliases']
+from fake_useragent import UserAgent
+from bs4 import BeautifulSoup
+
+from settings import REPOSITORY_NAME, REPOSITORY_SETTINGS
+
+
+class GoogleScholarArticles(Crawler):
+    crawler_id = 'googleScholarArticles'
+
+    def __init__(self, user_data):
+        super().__init__(user_data)
+
+        self.domain = 'scholar.google.com'
+        self.scholarUser = user_data['scholarUser']
+        self.scholarAliases = user_data['scholarAliases']
         self.lastRequestUrl = ''
-        self.cookieJar = requests.cookies.RequestsCookieJar()
-        self.proxies = {
-            'http': 'socks5h://' + TOR_IP + ':' + str(TOR_PORT),
-            'https': 'socks5h://' + TOR_IP + ':' + str(TOR_PORT),
-        }
-
-        # Set the extraction data save directories
-        directory = os.path.dirname(__file__)
-        self.tempDir = os.path.join(directory, 'storage/extractionTmp/' + user['id'] + '/')
-        os.makedirs(os.path.dirname(self.tempDir), exist_ok=True)
-        self.extractionZip = os.path.join(directory,
-                                          'storage/extraction/' + user['id'] + '-' + datetime.datetime.now().strftime(
-                                              '%Y%m%d'))
-
-        # Set the default proxy settings for the requests poll manager
-        certs_settings = {
-            'cert_reqs': 'CERT_REQUIRED',
-            'ca_certs': certifi.where()
-        }
-        self.html_source = SOCKSProxyManager('socks5://' + TOR_IP + ':' + str(TOR_PORT) + '/', **certs_settings)
-
-    # Do the extraction process
-    def extract(self):
-        extracted_articles = articles.Articles(self.userArr)
-        extracted_articles.extract()
-
+        self.mongoId = user_data['id']
+        self.user = user_data['user']
+        self.cookieJar = cookies.RequestsCookieJar()
+        self.pages = 1
 
     # Make the articles extraction
-    def extract_articles(self):
+    # TODO dividir para que separe los articulos en 2 colecciones. La temporal se va a borrar antes de la extraccion.
+    def data_extraction(self):
         # Start the data extraction
-        pages = 1
-        articles = []
-        query = urlencode({'q': '"' + self.scholarUser + '"', 'hl': 'en', 'btnG': 'Search Scholar', 'as_sdt': '0,5',
-                           'as_sdtp': '', 'lookup': '0'})
-        url = 'https://scholar.google.com/scholar?' + query
-        print('\nScholar main page Crawler for: ' + self.scholarUser + '\n')  # Test
-        while url != '' and len(articles) < 5:  # Limit the number of articles to make some tests
-            html_source = self.extract_page(url, pages)  # Download the page and save it in the tempDir
+        articles_count = 0
+        url = 'initial'
+
+        print('\nScholar main page Crawler for: ' + self.scholarUser + '\n')  # TODO Test
+
+        while url is not None:
+            # Generate the query Parameters
+            query_parameters = self.generate_query(url)
+
+            # Download the data
+            html_source = self.extract_page(query_parameters)  # Download the page and save it in the tempDir
 
             # process the downloaded data
-            data = self.process_page(html_source.content)
-            articles.extend(data)
+            data = self.data_process(html_source)
+
             # Check if the articles contain the user as author
-            if self.has_author(data):
+            if data['user'] is not None:
                 url = self.get_next_page_url(html_source.content)  # get next page url
-                #time.sleep(randint(10, 25))  # Sleep some time (between 10 and 25 seconds) to avoid a captcha page
+                # time.sleep(randint(10, 25))  # Sleep some time (between 10 and 25 seconds) to avoid a captcha page
             else:
+                url = None
+
+            self.pages = self.pages + 1
+            articles_count += len(list(data['user'])) + len(list(data['others']))
+
+            # TODO Tests
+            print('    Articles processed: ' + str(len(list(data['user']))))
+            if articles_count >= 200 or self.pages >= 20:
                 url = ''
-            pages = pages + 1
-            print('    Articles: ' + str(len(articles)))  # Test
-        # Add the articles to the DB
-        if articles is not []:
-            db = create_database_connection(REPOSITORY_NAME, REPOSITORY_SETTINGS)
-            db.add_new_articles(self.mongoId, articles)
 
         # Zip the extracted data and move it to the extraction DIR
         shutil.make_archive(self.extractionZip, 'zip', self.tempDir)
@@ -78,34 +70,40 @@ class GoogleScholar(Crawler):
         shutil.rmtree(self.tempDir, ignore_errors=True)
 
         # Return the job statistics
-        return jsonify({"name": API_NAME, "version": API_VERSION, "Function": "extract", "message": "Process finished",
-                        "Articles": str(len(articles))})
+        return 'Process finished. Articles: ' + str(articles_count)
 
-    # Data extraction
-    def extract_page(self, url, pages):
-        print('   Url: ' + url)  # Test output to debug the code
-        error = False
-        error_message = ''
-        headers = self.generate_headers()
-        html_source = requests.get(url, headers=headers, proxies=self.proxies, cookies=self.cookieJar)
+    # Function to generate the query parameters
+    def generate_query(self, url=None):
+        return {
+            'url': self.generate_articles_url(),
+            'params': self.generate_articles_get_parameters(url),
+            'headers': self.generate_articles_headers(),
+            'proxy': self.generate_articles_proxy(),
+            'filename': self.generate_articles_filename(),
+        }
 
-        # TODO Añadir error check
-        if html_source.status_code >= 400:
-            error = True
-            error_message = 'Download error'
+    # Function to generate the articles extraction Url
+    def generate_articles_url(self):
+        return 'https://' + self.domain + '/scholar'
 
-        if error:
-            file_name = 'retry-1-'
+    # Function to generate the articles extraction GET Parameters
+    def generate_articles_get_parameters(self, url=None):
+        if url is None or url is 'initial':
+            return {
+                'q': '"' + self.scholarUser + '"',
+                'hl': 'en',
+                'btnG': 'Search Scholar',
+                'as_sdt': '0,5',
+                'as_sdtp': '',
+                'lookup': '0'
+            }
         else:
-            file_name = 'page-'
-
-        # Save the downloaded data into the HDD
-        self.save_source_to_file(html_source, os.path.dirname(self.tempDir) + '/' + file_name + str(pages))
-
-        return html_source
+            # Parse the parameters of the url and return them
+            from urllib.parse import urlparse, parse_qs
+            return parse_qs(urlparse(url).query)
 
     # Function to generate some random headers
-    def generate_headers(self):
+    def generate_articles_headers(self):
         return {
             'User-agent': UserAgent().random,
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -118,18 +116,72 @@ class GoogleScholar(Crawler):
             'Upgrade-Insecure-Requests': '1'
         }
 
+    # Function to generate the Proxy Settings (Proxy settings)
+    def generate_articles_proxy(self):
+        from .httpProviders.proxyTor import ProxyTor
+        return ProxyTor().set_connection()
+
+    # Function to generate the filename
+    def generate_articles_filename(self, extension='.html'):
+        return 'articles-' + self.mongoId + '-page-' + str(self.pages) + '-' +\
+               str(datetime.datetime.now().timestamp()) + extension
+
+    """
+    Data Processing Part
+    """
+
     # Data processing
+    def data_process(self, html_source):
+        # Import the factory
+        from models.factory import connect_to_database
+
+        # Check if we got an error during the extraction
+        if 'error' in html_source:
+            data = {
+                'user': None,
+                'others': None,
+            }
+        else:
+            # Process the page to get the articles
+            data = self.process_page(html_source.content)
+
+            # Add the user articles to the DB
+            if data['user'] is not None:
+                db = connect_to_database(REPOSITORY_NAME, REPOSITORY_SETTINGS)
+                db.add_new_articles(self.mongoId, data['user'])
+
+            # Add the user articles to the DB
+            if data['user'] is not None:
+                db = connect_to_database(REPOSITORY_NAME, REPOSITORY_SETTINGS)
+                db.add_new_articles_others(self.mongoId, data['others'])
+
+        return data
+
+    # Process the Google Scholar articles page
     def process_page(self, html_source):
-        output = []
+        output = {
+            'user': [],
+            'others': [],
+        }
+
+        # Load the DOM Crawler and filter the articles from the HTML
         soup = BeautifulSoup(html_source, 'html5lib')
         articles = soup.select('.gs_r')
+
         for article in articles:
-            # print('   Next article: ' + article.get_text())
+            # print('   Next article: ' + article.get_text()) # TODO Test
             data = self.process_article(str(article))
-            if data is not None:
-                output.append(data)
+
+            # Add the data to it's corresponding group
+            if data is not None and 'authors' in data:
+                if self.has_author(data):
+                    output['user'].append(data)
+                else:
+                    output['others'].append(data)
+
         return output
 
+    # Process an article
     def process_article(self, article_source):
         soup = BeautifulSoup(article_source, 'html.parser')
         article = {'articleId': '', 'title': '', 'date': '', 'source': '', 'description': '', 'quotes': 0,
@@ -149,7 +201,7 @@ class GoogleScholar(Crawler):
             article['authors'].append(author.get_text())
 
         # Check if we got the user profile field or an article
-        if not article['authors'] or not set(article['authors']).isdisjoint(self.scholarAliases):
+        if not article['authors']:
             return None
 
         # Get the article Id
@@ -165,7 +217,7 @@ class GoogleScholar(Crawler):
         # Get the article date
         dates = soup.select('.gs_ri > .gs_a')
         for date in dates:
-            regex = re.compile('\s(\d{4})\s\-')
+            regex = re.compile('\s(\d{4})\s-')
             article['date'] = str(regex.findall(date.get_text())[0])
 
         # Get the source URL
@@ -193,27 +245,27 @@ class GoogleScholar(Crawler):
                 article['versions'] = str(regex.match(part.get_text())[1])
                 continue
 
-        # print('   Article: ' + str(article))  # Test output to debug the code
+        # print('   Article: ' + str(article))  # TODO Test output to debug the code
         return article
 
+    # TODO cambiar esto para que no añada el domain. De ese modo se puede reusar el crawler para otros dominios distintos
     def get_next_page_url(self, html_source):
-        soup = BeautifulSoup(html_source, 'html.parser')
-        url = soup.select('#gs_n td[align~=left] > a')
-        if url is not []:
-            url = 'https://scholar.google.com' + url[0]['href']
-        print('   Next Url: ' + str(url))  # Test
-        return str(url)
 
-    def save_source_to_file(self, source, file_path, extension='.html'):
-        # Save the downloaded data into the HDD
-        with open(file_path + extension, 'wb') as file:
-            file.write(source.content)
+        soup = BeautifulSoup(html_source, 'html5lib')
+        url = soup.select('#gs_n td[align~=left] > a')
+
+        if 0 in url and 'href' in url[0] and url[0]['href'] is not None:
+            url = 'https://scholar.google.com' + url[0]['href']
+
+        print('   Next Url: ' + str(url))  # TODO Test
+
+        return str(url)
 
     # Check if the article is from the user
     def has_author(self, data):
-        for article in data:
-            for author in article['authors']:
-                for alias in self.scholarAliases:
-                    if alias not in author:
-                        return True
+        for author in data['authors']:
+            for alias in self.scholarAliases:
+                if alias in author:
+                    return True
+
         return False

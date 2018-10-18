@@ -11,43 +11,153 @@
 
 <h1>{{title}}:</h1>
 
-{% if articles %}
-    <table class="table table-hover">
-        <tbody>
-            {% for article in articles %}
-            <tr>
-                <td>
-                    <h3>{{article.title}}</h3>
-                    <table>
-                        <tbody>
-                            <tr>
-                                <td class="auto-style1">
-                                    <span> <b>Authors: </b>
-                                    {% for author in article.authors %}
-                                        {{author}}
-                                    {% endfor %}
-                                    </span><br/>
-                                    <span><b>Date: </b>{{article.date}}</span><br/>
-                                    <span><b>Quotes: </b>{{article.quotes}}</span><br/>
-                                    <span><b>Versions: </b>{{article.versions}}</span><br/>
-                                    <a href="{{article.source}}">Source</a>
-                                    <br/>
-                                    <a href="{{article.related}}">Related Articles</a>
-                                </td>
-                                <td>
-                                    <span>{{article.description}}</span>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-{% else %}
-    <p>No articles available.</p>
-    <br />
-{% endif %}
+<div>
+
+    <!-- Nav tabs -->
+    <ul class="nav nav-tabs" role="tablist">
+        <li role="presentation" class="active"><a href="#user" aria-controls="user" role="tab" data-toggle="tab">Usuario</a>
+        </li>
+        <li role="presentation"><a href="#others" aria-controls="others" role="tab" data-toggle="tab">Otros</a></li>
+        <li role="presentation"><a href="#all" aria-controls="all" role="tab" data-toggle="tab">Todos</a>
+        </li>
+    </ul>
+
+    <!-- Tab panes -->
+    <div class="tab-content">
+        <div role="tabpanel" class="tab-pane fade in active" id="user">
+            {% if articles.user|length > 0 %}
+                <table class="table table-hover">
+                    <tbody>
+                    {% for article in articles.user|sort(attribute='date')|reverse %}
+                        <tr>
+                            <td>
+                                <h3>{{article.title}}</h3>
+                                <table>
+                                    <tbody>
+                                    <tr>
+                                        <td class="auto-style1">
+                                            <span><b>Date: </b>{{article.date}}</span><br/>
+                                            <span><b>Quotes: </b>{{article.quotes}}</span><br/>
+                                            <span><b>Versions: </b>{{article.versions}}</span>
+                                            <div>
+                                                <dl>
+                                                    <dt>Authors:</dt>
+                                                        {% for author in article.authors %}
+                                                            <dd>- {{author}}</dd>
+                                                        {% endfor %}
+                                                </dl>
+                                            </div>
+                                            <a href="{{article.source}}">Source</a>
+                                            <br/>
+                                            <a href="{{article.related}}">Related Articles</a>
+                                        </td>
+                                        <td>
+                                            <span>{{article.description}}</span>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <br/>
+                <p align="center">No hay articulos disponibles.</p>
+                <br/>
+            {% endif %}
+        </div>
+        <div role="tabpanel" class="tab-pane fade" id="others">
+            {% if articles.others|length > 0 %}
+                <table class="table table-hover">
+                    <tbody>
+                    {% for article in articles.others|sort(attribute='date')|reverse %}
+                        <tr>
+                            <td>
+                                <h3>{{article.title}}</h3>
+                                <table>
+                                    <tbody>
+                                    <tr>
+                                        <td class="auto-style1">
+                                            <span><b>Date: </b>{{article.date}}</span><br/>
+                                            <span><b>Quotes: </b>{{article.quotes}}</span><br/>
+                                            <span><b>Versions: </b>{{article.versions}}</span>
+                                            <div>
+                                                <dl>
+                                                    <dt>Authors:</dt>
+                                                        {% for author in article.authors %}
+                                                            <dd>- {{author}}</dd>
+                                                        {% endfor %}
+                                                </dl>
+                                            </div>
+                                            <a href="{{article.source}}">Source</a>
+                                            <br/>
+                                            <a href="{{article.related}}">Related Articles</a>
+                                        </td>
+                                        <td>
+                                            <span>{{article.description}}</span>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <br/>
+                <p align="center">No hay articulos disponibles.</p>
+                <br/>
+            {% endif %}
+        </div>
+        <div role="tabpanel" class="tab-pane fade" id="all">
+            {% if articles.user|length > 0 or articles.others|length > 0 %}
+                <table class="table table-hover">
+                    <tbody>
+                    {% for article in (articles.user|list + articles.others|list)|sort(attribute='date')|reverse %}
+                        <tr>
+                            <td>
+                                <h3>{{article.title}}</h3>
+                                <table>
+                                    <tbody>
+                                    <tr>
+                                        <td class="auto-style1">
+                                            <span><b>Date: </b>{{article.date}}</span><br/>
+                                            <span><b>Quotes: </b>{{article.quotes}}</span><br/>
+                                            <span><b>Versions: </b>{{article.versions}}</span>
+                                            <div>
+                                                <dl>
+                                                    <dt>Authors:</dt>
+                                                        {% for author in article.authors %}
+                                                            <dd>- {{author}}</dd>
+                                                        {% endfor %}
+                                                </dl>
+                                            </div>
+                                            <a href="{{article.source}}">Source</a>
+                                            <br/>
+                                            <a href="{{article.related}}">Related Articles</a>
+                                        </td>
+                                        <td>
+                                            <span>{{article.description}}</span>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <br/>
+                <p align="center">No hay articulos disponibles.</p>
+                <br/>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
 
 {% endblock %}

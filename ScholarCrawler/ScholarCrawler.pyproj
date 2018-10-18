@@ -26,8 +26,12 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="runserver.py" />
-    <Compile Include="ScholarCrawler\crawler\crawler.py" />
+    <Compile Include="ScholarCrawler\api.py" />
+    <Compile Include="ScholarCrawler\crawler\crawlerGeneral.py" />
+    <Compile Include="ScholarCrawler\crawler\googleScholarArticles.py" />
     <Compile Include="ScholarCrawler\crawler\__init__.py" />
+    <Compile Include="ScholarCrawler\httpProviders\proxyTor.py" />
+    <Compile Include="ScholarCrawler\httpProviders\__init__.py" />
     <Compile Include="ScholarCrawler\models\mongodb.py" />
     <Compile Include="ScholarCrawler\__init__.py" />
     <Compile Include="ScholarCrawler\settings.py" />
@@ -42,6 +46,7 @@
     <Folder Include="ScholarCrawler\crawler\storage\" />
     <Folder Include="ScholarCrawler\crawler\storage\extractionTmp\" />
     <Folder Include="ScholarCrawler\crawler\storage\extraction\" />
+    <Folder Include="ScholarCrawler\httpProviders\" />
     <Folder Include="ScholarCrawler\models\" />
     <Folder Include="ScholarCrawler\static\" />
     <Folder Include="ScholarCrawler\static\content\" />
@@ -68,10 +73,7 @@
     <Content Include="ScholarCrawler\static\scripts\_references.js" />
     <Content Include="ScholarCrawler\templates\about.html" />
     <Content Include="ScholarCrawler\templates\contact.html" />
-    <Content Include="ScholarCrawler\templates\details.html" />
     <Content Include="ScholarCrawler\templates\index.html" />
-    <Content Include="ScholarCrawler\templates\pollsresult.html" />
-    <Content Include="ScholarCrawler\templates\polls.html" />
     <Content Include="ScholarCrawler\templates\layout.html" />
     <Content Include="ScholarCrawler\templates\articles.html" />
     <Content Include="ScholarCrawler\templates\settings.html" />

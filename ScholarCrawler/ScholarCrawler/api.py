@@ -1,57 +1,45 @@
 """
-Routes and views for the flask application.
+Routes and views for the flask application API.
 """
 
-from flask import render_template, redirect, request, jsonify, session, url_for, flash, current_app, json
+from flask import request, jsonify, session
 from functools import wraps
-from bson.json_util import dumps
 
 from . import app
-from .models import DataNotFound
-from .models.factory import create_database_connection
-from .settings import REPOSITORY_NAME, REPOSITORY_SETTINGS, API_NAME, API_VERSION
-from .crawler.crawlerGeneral import *
+from .models.factory import DataNotFound
+from .settings import API_NAME, API_VERSION
 
 
 # Function to define the DB connection
-def connect_db(): # TODO Cambiar esto, En lugar de hacer un create, deberiamos de hacer un connect con un metodo de fallback por si falla
-    return create_database_connection(REPOSITORY_NAME, REPOSITORY_SETTINGS)
+def connect_db():
+    from .settings import REPOSITORY_NAME, REPOSITORY_SETTINGS
+    from .models.factory import connect_to_database
+
+    return connect_to_database(REPOSITORY_NAME, REPOSITORY_SETTINGS)
 
 
-# Function to make internal API calls
-def make_api_callback(view_name, *args, **kwargs):
-    # Calls internal view method, parses json, and returns python dict. #
-    view = current_app.view_functions[view_name]
-    response = view(*args, **kwargs)
-    json_response = json.loads(response.data)
-    return json_response
+# Create and Start the Scheduler process
+def create_scheduler():
+    from .settings import REPOSITORY_NAME, REPOSITORY_SETTINGS
+    from .models.factory import create_scheduler_process
+
+    return create_scheduler_process(REPOSITORY_NAME, REPOSITORY_SETTINGS)
 
 
-# login required decorator
-def login_required(called_function):
-    @wraps(called_function)
-    def decorated_function(*args, **kwargs):
-        if 'logged' in session:
-            return called_function(*args, **kwargs)
-        else:
-            flash('You need to login first')
-            print(request.values)
-            return redirect(url_for('home'))
-
-    return decorated_function
+# Connect to the local scheduler
+def connect_scheduler():
+    from . import scheduler
+    return scheduler
 
 
 # login required decorator For the API
 def login_required_api(called_function):
     @wraps(called_function)
     def decorated_function_api(*args, **kwargs):
-        if 'login' in args:
+        if 'logged' in session:
             return called_function(*args, **kwargs)
         else:
-            if 'logged' in session:
-                return called_function(*args, **kwargs)
-            else:
-                return jsonify({"name": API_NAME, "version": API_VERSION, "message": "You need to login first"})
+            return jsonify({"name": API_NAME, "version": API_VERSION, "message": "You need to login first"})
 
     return decorated_function_api
 
@@ -62,200 +50,179 @@ def api():
     return jsonify({"name": API_NAME, "version": API_VERSION})
 
 
-# Main API function controller
-@app.route('/api/<function>', methods=['GET', 'POST'])
-@login_required_api
-def api_function(called_function):
-    error = "function not found"
+@app.route('/api/public', methods=['GET', 'POST'])
+@app.route('/api/public/<called_function>', methods=['GET', 'POST'])
+def api_public(called_function=None):
     if called_function == 'login':
-        error = login_api(request)
-    elif called_function == 'logout':
-        error = logout_api()
-    elif called_function == 'extract':
-        extractor = create_crawler(session['user'], 'googleScholarArticles')
-        return extractor.data_extraction()
+        message = api_login(request)
+    elif called_function == 'signup':
+        message = api_signup(request)
+    elif called_function == 'server_info':
+        message = api_info()
+    else:
+        message = 'Function doesn\'t exist or not implemented'
+
+    return jsonify({"name": API_NAME, "version": API_VERSION, "function": called_function, "message": message})
+
+
+# Main API function controller
+@app.route('/api/<called_function>', methods=['GET', 'POST'])
+@login_required_api
+def api_function(called_function=None):
+    if called_function == 'logout':
+        message = api_logout()
+    elif called_function == 'extract_articles':
+        message = api_extract_articles()
     elif called_function == 'get_articles':
-        user_articles = {
-            'user': connect_db().get_articles(session['user']['id']),
-            'others': connect_db().get_articles_others(session['user']['id']),
-        }
-        if len(user_articles['user']) + len(user_articles['others']) > 0:
-            error = dumps(user_articles)
-        else:
-            error = "No articles found"
-    return jsonify({"name": API_NAME, "version": API_VERSION, "function": called_function, "message": error})
+        message = api_get_articles()
+    else:
+        message = 'Function doesn\'t exist or not implemented'
+
+    return jsonify({"name": API_NAME, "version": API_VERSION, "function": called_function, "message": message})
 
 
 # Make the login request
-def login_api(login_request):
-    # Check the request method and the database for data #
+def api_login(login_request):
+    # Check the request method and the database for data
     if login_request.method != 'POST':
-        error = 'Bad request type: ' + login_request.method
+        return 'Bad request type: ' + login_request.method
+
+    # Get the user value from the request #
+    if 'emailSigninInput' in login_request.form:
+        email = login_request.form.get('emailSigninInput')
+    elif 'email' in login_request.form:
+        email = login_request.form.get('email')
     else:
-        # Get the user value from the request #
-        if 'emailSigninInput' in login_request.form:
-            email = login_request.form.get('emailSigninInput')
-        elif 'email' in login_request.form:
-            email = login_request.form.get('email')
-        else:
-            return 'Unable to get user from request'
+        return 'Unable to get user from request'
 
-        # Get the password value from the request #
-        if 'passwordSigninInput' in login_request.form:
-            password = login_request.form.get('passwordSigninInput')
-        elif 'password' in login_request.form:
-            password = login_request.form.get('password')
-        else:
-            return 'Unable to get password from request'
+    # Get the password value from the request #
+    if 'passwordSigninInput' in login_request.form:
+        password = login_request.form.get('passwordSigninInput')
+    elif 'password' in login_request.form:
+        password = login_request.form.get('password')
+    else:
+        return 'Unable to get password from request'
 
-        doc = connect_db().get_user_by_mail(email)
-        # Check if the user exists #
-        if doc == 'userNotFound':
-            error = 'User: ' + email + ' doesn\'t exist'
-        else:
-            # Check the password #
-            if doc['password'] == password:
-                session['logged'] = True
-                session['user'] = {'id': str(doc['_id']), 'name': doc['name'], 'user': doc['mail'],
-                                   'scholarUser': doc['scholarUser'], 'scholarAliases': doc['scholarAliases']}
-                error = 'Welcome ' + doc['name']
-            else:
-                error = 'Incorrect password'
-    return error
+    doc = connect_db().get_user_by_mail(email)
+    # Check if the user exists #
+    if doc == 'userNotFound':
+        return 'User: ' + email + ' doesn\'t exist'
+
+    # Check the password #
+    if doc['password'] == password:
+        session['logged'] = True
+        session['user'] = {'id': str(doc['_id']), 'name': doc['name'], 'user': doc['mail'],
+                           'scholarUser': doc['scholarUser'], 'scholarAliases': doc['scholarAliases']}
+        return 'Welcome ' + doc['name']
+
+    return 'Incorrect password'
+
+
+# Makes the registration request
+def api_signup(signup_request):
+    # Check the request method and make a data validation
+    if signup_request.method != 'POST':
+        return 'Bad request type: ' + signup_request.method
+
+    if signup_request.form.get('emailSignUpInput') is None:
+        return 'Invalid request: Missing Email'
+
+    if signup_request.form.get('usernameSignUpInput') is None:
+        return 'Invalid request: Missing Name'
+
+    if signup_request.form.get('passwordSignUpInput') is None:
+        return 'Invalid request: Missing Password'
+
+    if signup_request.form.get('passwordSignUpInput2') is None:
+        return 'Invalid request: Missing Password Confirmation'
+
+    # Check ir the user already exists
+    db = connect_db()
+    doc = db.get_user_by_mail(signup_request.form.get('emailSignUpInput'))
+
+    if doc != 'userNotFound':
+        return 'Mail: "' + signup_request.form.get('emailSignUpInput') + '" already in the database'
+
+    if signup_request.form.get('passwordSignUpInput') != signup_request.form.get('passwordSignUpInput2'):
+        return 'Passwords don\'t match'
+
+    # Add the new user to the database
+    doc = {
+        'name': signup_request.form.get('usernameSignUpInput'),
+        'mail': signup_request.form.get('emailSignUpInput'),
+        'password': signup_request.form.get('passwordSignUpInput'),
+        'scholarUser': signup_request.form.get('usernameSignUpInput'),
+        'scholarAliases': [],
+    }
+    db.add_new_user(doc)
+
+    # Sign in the recently created user
+    doc = db.get_user_by_mail(signup_request.form.get('emailSignUpInput'))
+    session['logged'] = True
+    session['user'] = {'id': str(doc['_id']), 'name': doc['name'], 'user': doc['mail'],
+                       'scholarUser': doc['scholarUser'], 'scholarAliases': doc['scholarAliases']}
+
+    return 'User creation Successful. Welcome ' + str(doc['name'])
+
+
+# Returns the API server status
+def api_info():
+    return {
+        'database': connect_db().name,
+        'communication_protocol': 'HTTP',  # Later we can add Websockets or another protocol
+        'scheduler_store': connect_scheduler().name,
+    }
 
 
 # Makes the Logout request
-def logout_api():
+def api_logout():
     # Erase the user session and data
     session.pop('logged', None)
     session.pop('user', None)
+
     return 'Logout successful'
 
 
-@app.route('/')
-@app.route('/home')
-def home():
-    # Renders the home page
-    return render_template(
-        'index.html',
-        title='Google Scholar Crawler',
-        year=datetime.datetime.now().year,
-    )
+# Makes the Google Scholar Articles extraction
+def api_extract_articles():
+    from .crawler.crawlerGeneral import create_crawler_and_extract
+
+    # TODO ya empieza el Scheduler y hay que ver si crea los jobs o simplemente no lo los crea
+    return connect_scheduler().add_one_time_job(function_name=create_crawler_and_extract,
+                                                func_args={'user_data': session['user'],
+                                                           'desired_crawler': 'googleScholarArticles'},
+                                                user_id=session['user']['id'])
+    # return create_crawler(session['user'], 'googleScholarArticles').data_extraction()
 
 
-@app.route('/login', methods=['GET', 'POST'])
-def login(default_url='home'):
-    api_call = make_api_callback('api_function', 'login')
-    flash(api_call['message'])
-    return redirect(request.referrer) or redirect(url_for(default_url))
+# Get the User articles from the database
+def api_get_articles():
+    user_articles = {
+        'user': connect_db().get_articles(session['user']['id']),
+        'others': connect_db().get_articles_others(session['user']['id']),
+    }
+
+    if len(user_articles['user']) + len(user_articles['others']) > 0:
+        return user_articles
+
+    return "No articles found"
 
 
-@app.route('/logout')
-@login_required
-def logout():
-    # Makes the Logout request
-    api_call = make_api_callback('api_function', 'logout')
-    flash(api_call['message'])
-    return redirect(url_for('home'))
+# Get the User settings from the database
+def api_get_user_settings():
+    return connect_db().get_user_by_id(session['user']['id'])
 
 
-@app.route('/signup', methods=['GET', 'POST'])
-def signup(default_url='home'):
-    # Check the request method and the database for data #
-    if request.method != 'POST':
-        error = 'Bad request type: ' + request.method
-    else:
-        doc = connect_db().get_user(request.form.get('emailSigninInput'))
-        # Check if the user exists #
-        if doc != 'userNotFound':
-            error = 'User: ' + request.form.get('emailSigninInput') + ' already exist'
-        else:
-            # Check the password #
-            if doc['password'] == request.form.get('passwordSigninInput'):
-                session['logged'] = True
-                session['user'] = {'id': str(doc['_id']), 'name': doc['name'], 'user': doc['mail'],
-                                   'scholarUser': doc['scholarUser'], 'scholarAliases': doc['scholarAliases']}
-                error = 'Welcome ' + doc['name']
-            else:
-                error = 'Incorrect password'
-    flash(error)
-    return redirect(request.referrer) or redirect(url_for(default_url))
+# TODO FUNCIONES A IMPLEMENTAR
+# def api_set_scheduler():
+# TODO establecer un scheduler para el job/user que se quiera usar.
 
+# def api_remove_scheduler():
+# TODO quitar un scheduler para el job/user que se quiera
 
-@app.route('/settings')
-@login_required
-def settings():
-    # Renders the crawler user settings page
-    return render_template(
-        'settings.html',
-        title='Settings',
-        year=datetime.datetime.now().year,
-        # settings=connect_db().get_user_config() # TODO añadir esto y una funcion para autorefrescar la pagina de settings al cambiar algo.
-    )
-
-
-@app.route('/articles')
-@login_required
-def articles():
-    # Renders the articles page, with a list of ALL the articles.
-    api_call = make_api_callback('api_function', 'get_articles')
-
-    user_articles = json.loads(api_call['message'])
-    if 'user' not in user_articles:
-        user_articles = {
-            'user': [],
-            'others': [],
-        }
-
-    return render_template(
-        'articles.html',
-        title='Articles for ' + session['user']['name'],
-        year=datetime.datetime.now().year,
-        articles=user_articles
-    )
-
-
-@app.route('/extract')
-@login_required
-def extract(default_url='home'):
-    # Makes the Google Scholar Articles extraction
-    flash("Extraction in progress")
-    api_call = make_api_callback('api_function', 'extract')
-
-    if int(api_call['Articles']) > 0:
-        flash("Extraction Successful")
-    else:
-        flash("Extraction Failed")
-
-    return redirect(request.referrer) or redirect(url_for(default_url))
-
-
-@app.route('/contact')
-def contact():
-    # Renders the contact page. #
-    return render_template(
-        'contact.html',
-        title='Contact',
-        year=datetime.datetime.now().year,
-    )
-
-
-@app.route('/about')
-def about():
-    # Renders the about page. #
-    communication_protocol = 'TCP'
-    return render_template(
-        'about.html',
-        title='About',
-        year=datetime.datetime.now().year,
-        db_name=connect_db().name,
-        comunitacion_protocol=communication_protocol
-    )
-
-
+# Renders error page.
 @app.errorhandler(DataNotFound)
 def page_not_found(error):
-    # Renders error page.
     if not error:
         error = 'Page doesn\'t exist.'
     return error, 404

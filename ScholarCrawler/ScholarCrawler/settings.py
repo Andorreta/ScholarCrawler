@@ -23,10 +23,15 @@ else:
 API_NAME = "Scholar Crawler API"
 API_VERSION = "0.5"
 
+# Tor Proxy Settings
+TOR_IP = '127.0.0.1'
+TOR_PORT = 9050
+
 
 class BaseConfig(object):
     DEBUG = False
     SECRET_KEY = '\x0c\'\xbe\xc5/\x82\'\xca\xde?\xe8\x95Z\xc4`\x7f>ces\xad\x0e\xdc\xf3'
+
 
 class LocalConfig(BaseConfig):
     DEBUG = False

@@ -258,4 +258,8 @@ paket-files/
 
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
-*.pyc
+*.
+
+# Ignore storage content
+/ScholarCrawler/ScholarCrawler/crawler/storage/extraction/*
+/ScholarCrawler/ScholarCrawler/crawler/storage/extractionTmp/*

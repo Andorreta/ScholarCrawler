@@ -44,7 +44,10 @@ class ProxyTor(object):
 
         try:
             with self.Controller.from_port() as controller:
-                controller.authenticate() # TODO aqui peta hay que hacer algo para que coja la cookie (mi sistema está bien configurado, así que tiene que ser cosa de STEM)
+                controller.authenticate() # TODO aqui peta
+                # TODO hay que hacer algo para que coja la cookie (mi sistema está bien configurado
+                # TODO con los permisos y la ubicación del fichero, así que tiene que ser cosa del STEM)
+                # TODO Tambien se podría cambiar al sistema de autenticación por clave (Password)
                 response = controller.get_info("status/bootstrap-phase")
                 controller.close()
 
