@@ -5,7 +5,6 @@ Package for the crawler.
 from .crawlerGeneral import *
 
 import re
-import shutil
 from requests import cookies
 
 from fake_useragent import UserAgent
@@ -41,6 +40,10 @@ class GoogleScholarArticles(Crawler):
         while url is not None:
             # Generate the query Parameters
             query_parameters = self.generate_query(url)
+
+            # Check possible errors withe the proxy
+            if 'proxy' in query_parameters and query_parameters['proxy'] is None:
+                return 'Process aborted. Proxy connection failure'
 
             # Download the data
             html_source = self.extract_page(query_parameters)  # Download the page and save it in the tempDir
@@ -80,6 +83,8 @@ class GoogleScholarArticles(Crawler):
             'headers': self.generate_articles_headers(),
             'proxy': self.generate_articles_proxy(),
             'filename': self.generate_articles_filename(),
+            'retries': 3,
+            'retries_wait_range': [6, 10],
         }
 
     # Function to generate the articles extraction Url
@@ -174,10 +179,7 @@ class GoogleScholarArticles(Crawler):
 
             # Add the data to it's corresponding group
             if data is not None and 'authors' in data:
-                if self.has_author(data):
-                    output['user'].append(data)
-                else:
-                    output['others'].append(data)
+                output['user'].append(data) if self.has_author(data) else output['others'].append(data)
 
         return output
 
@@ -250,12 +252,11 @@ class GoogleScholarArticles(Crawler):
 
     # TODO cambiar esto para que no añada el domain. De ese modo se puede reusar el crawler para otros dominios distintos
     def get_next_page_url(self, html_source):
-
         soup = BeautifulSoup(html_source, 'html5lib')
         url = soup.select('#gs_n td[align~=left] > a')
 
         if 0 in url and 'href' in url[0] and url[0]['href'] is not None:
-            url = 'https://scholar.google.com' + url[0]['href']
+            url = 'https://' + self.domain + url[0]['href']
 
         print('   Next Url: ' + str(url))  # TODO Test
 
@@ -269,3 +270,22 @@ class GoogleScholarArticles(Crawler):
                     return True
 
         return False
+
+        # Checks for possible errors in the download
+
+    def extraction_error_check(self, html_source):
+        error = super().extraction_error_check(html_source)
+
+        if not error['error']:
+            # Check if there're captchas in the HTML
+            captchas = re.compile('gs_captcha_f', re.IGNORECASE)
+            if captchas.match(html_source.text):
+                # Rotate the IP
+                from.httpProviders.proxyTor import ProxyTor
+                ProxyTor().rotate_ip()
+                error = {
+                    'error': True,
+                    'error_message': 'Captchas Detected',
+                }
+
+        return error

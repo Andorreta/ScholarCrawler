@@ -5,6 +5,7 @@ Data crawler for the different types of requests
 import urllib3
 import os
 import datetime
+import shutil
 
 
 # Create a Crawler object to make the data extraction or processing
@@ -38,6 +39,11 @@ class Crawler(object):
         # Set the extraction data save directories
         directory = os.path.dirname(__file__)
         self.tempDir = os.path.join(directory, 'storage/extractionTmp/' + self.crawler_id + '-' + user_data['id'] + '/')
+
+        # Clean the Temp directory before starting a new download (Remove it to have a clean download)
+        shutil.rmtree(self.tempDir, ignore_errors=True)
+
+        # Create the temp directory
         os.makedirs(os.path.dirname(self.tempDir), exist_ok=True)
         self.extractionZip = os.path.join(directory,
                                           'storage/extraction/' + self.crawler_id + '-' + user_data['id'] + '-' +
@@ -58,11 +64,8 @@ class Crawler(object):
 
     def extract_page(self, parameters):
         from requests import Request, Session
-
-        error = {
-            'error': False,
-            'error_message': '',
-        }
+        from random import randint
+        from time import sleep
 
         # Check if we have an url and filename
         if 'url' not in parameters:
@@ -82,37 +85,25 @@ class Crawler(object):
         if 'requestType' not in parameters:
             parameters['requestType'] = 'GET'
 
-        if 'headers' not in parameters:
-            headers = parameters['headers']
-        else:
-            headers = None
+        # Set the request Headers
+        headers = parameters['headers'] if 'headers' in parameters else None
 
         # GET Parameters
-        if 'params' in parameters:
-            params = parameters['params']
-        else:
-            params = None
+        params = parameters['params'] if 'params' in parameters else None
 
         # Request Body for 'x-url-encoded' parameters
-        if 'data' in parameters:
-            data = parameters['data']
-        else:
-            data = None
+        data = parameters['data'] if 'data' in parameters else None
 
-        if 'cookies' in parameters:
-            cookies = parameters['cookies']
-        else:
-            cookies = None
+        # Set the request Cookies
+        cookies = parameters['cookies'] if 'cookies' in parameters else None
 
-        if 'proxy' in parameters:
-            proxy = parameters['proxy']
-        else:
-            proxy = urllib3.PoolManager()
+        # Set the request PoolManager
+        proxy = parameters['proxy'] if 'proxy' in parameters else urllib3.PoolManager()
 
-        if 'retries' in parameters:
-            retry_number = parameters['retries']
-        else:
-            retry_number = 1
+        # Set the max retries number
+        max_retries = parameters['retries'] if 'retries' in parameters else 1
+        retries_wait_range = parameters['retries_wait_range'] if 'retries_wait_range' in parameters else [3, 5]
+        current_retry = 1
 
         # Prepare the desired Request and make the download
         session = Session()
@@ -120,22 +111,36 @@ class Crawler(object):
         # html_source = requests.request('GET', url, headers=headers, proxies=self.proxies, cookies=self.cookieJar)
         desired_request = Request(parameters['requestType'], parameters['url'], headers=headers, params=params,
                                   data=data, cookies=cookies)
+
         prepared_request = desired_request.prepare()
 
-        html_source = session.send(
-            prepared_request,
-            proxies=proxy
-        )
+        while current_retry <= max_retries:
+            html_source = session.send(prepared_request, proxies=proxy)
 
-        # TODO Añadir error check
-        if html_source.status_code >= 400:
-            error['error'] = True
-            error['error_message'] = 'Download error'
+            # TODO Add a more advanced error check
+            error = self.extraction_error_check(html_source)
+            if error['error']:
+                parameters['filename'] = parameters['filename'] + 'retry-' + str(max_retries) + '-'
 
-        if error['error']:
-            parameters['filename'] = parameters['filename'] + 'retry-' + str(retry_number) + '-'
+            # Save the downloaded data into the HDD
+            self.save_source_to_file(html_source, os.path.dirname(self.tempDir) + '/' + parameters['filename'])
 
-        # Save the downloaded data into the HDD
-        self.save_source_to_file(html_source, os.path.dirname(self.tempDir) + '/' + parameters['filename'])
+            # Increase the request number and sleep a random time from the range
+            current_retry = current_retry + 1
+            if error['error'] and current_retry <= max_retries:
+                sleep(randint(retries_wait_range[0], retries_wait_range[1]))
 
         return html_source
+
+    # Checks for possible errors in the download
+    def extraction_error_check(self, html_source):
+        if html_source.status_code >= 400:
+            return {
+                'error': True,
+                'error_message': 'Download error',
+            }
+
+        return {
+            'error': False,
+            'error_message': '',
+        }

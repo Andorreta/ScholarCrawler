@@ -3,6 +3,7 @@ pymongo<3
 urllib3[secure]
 requests
 stem
+pysocks
 beautifulsoup4
 html5lib
 fake-useragent

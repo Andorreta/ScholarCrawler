@@ -116,10 +116,10 @@ def extract(default_url='home'):
     flash("Extraction in progress")
     api_call = make_api_callback('api_function', 'extract_articles')
 
-    if int(api_call['message']['Articles']) > 0:
-        flash("Extraction Successful")
-    else:
+    if api_call['message'] is None or int(api_call['message']['Articles']) == 0:
         flash("Extraction Failed")
+    else:
+        flash("Extraction Successful")
 
     return redirect(request.referrer) or redirect(url_for(default_url))
 

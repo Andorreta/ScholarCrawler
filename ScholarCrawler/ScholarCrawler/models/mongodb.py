@@ -92,6 +92,7 @@ class Database(Database):
         self.collection = self.database['Users']
 
         try:
+            user = self.add_data_time(user)
             self.collection.insert_one(user)
         except(InvalidId, ValueError):
             raise DataNotFound()
@@ -105,6 +106,7 @@ class Database(Database):
         # Insert the articles to MongoDB
         try:
             for article in articles:
+                article = self.add_data_time(article)
                 self.collection.update({'articleId': article['articleId']}, article, upsert=True)
         except(InvalidId, ValueError):
             raise DataNotFound()
@@ -118,6 +120,7 @@ class Database(Database):
         # Insert the articles to MongoDB
         try:
             for article in articles:
+                article = self.add_data_time(article)
                 self.collection.update({'articleId': article['articleId']}, article, upsert=True)
         except(InvalidId, ValueError):
             raise DataNotFound()
@@ -147,6 +150,21 @@ class Database(Database):
             docs.append(json.loads(dumps(document)))
 
         return docs
+
+    # Add a time to the documents to know the update and creation date
+    def add_data_time(self, data):
+        import datetime
+
+        date = datetime.datetime.utcnow()
+
+        # Add the creation date if it hasn't
+        if 'creation_date' not in data:
+            data['creation_date'] = date.strftime('%Y-%m-%d %H:%M:%S')
+
+        # Update the data update Date
+        data['update_date'] = date.strftime('%Y-%m-%d %H:%M:%S')
+
+        return data
 
 
 # Class for the scheduler using MongoDB as Job Store

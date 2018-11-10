@@ -25,3 +25,7 @@ Google Scholar Web page crawler
 * Separar las funciones de los crawlers para permitir herencia. Es decir, sacar mierda del ***\_\_init\_\_.py*** y meterlo dentro del ***GoogleScholar.py*** y lo generico, como lo del TOR, en el ***crawlerGeneral.py***.
 * Añadir el crawler de Orcid para coger los datos de los Ids de los profesores. ***(OPCIONAL)***
 * Añadir una comprobación en el models/factory de que si no se puede conectar a MongoDB, que use el modelo de memoria.
+
+## Update 2018-11-10:
+* He conseguido hacer funcionar el ProxyTor y añadir un control de errores un poco mas complejo.
+    * **POR HACER:** Hay un fallo cuando sale un captcha, parece que proxy cambia de IP, pero no repite la ultima request, por lo que nos manda a la pagina principal de google scholar y se queda en bucle infinito allí.
