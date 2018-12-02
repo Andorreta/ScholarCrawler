@@ -1,11 +1,10 @@
 """
-Package for the crawler.
+Package to extract the Google Scholar data using cli tools (like curl, requests,...)
 """
 
 from .crawlerGeneral import *
 
 import re
-from requests import cookies
 
 from fake_useragent import UserAgent
 from bs4 import BeautifulSoup
@@ -17,11 +16,14 @@ class GoogleScholarArticles(Crawler):
     crawler_id = 'googleScholarArticles'
 
     def __init__(self, user_data):
+        from requests import cookies
+
         super().__init__(user_data)
 
         self.domain = 'scholar.google.com'
         self.scholarUser = user_data['scholarUser']
         self.scholarAliases = user_data['scholarAliases']
+        self.unusedScholarAliases = []
         self.lastRequestUrl = ''
         self.mongoId = user_data['id']
         self.user = user_data['user']
@@ -54,7 +56,6 @@ class GoogleScholarArticles(Crawler):
             # Check if the articles contain the user as author
             if data['user'] is not None:
                 url = self.get_next_page_url(html_source.content)  # get next page url
-                # time.sleep(randint(10, 25))  # Sleep some time (between 10 and 25 seconds) to avoid a captcha page
             else:
                 url = None
 

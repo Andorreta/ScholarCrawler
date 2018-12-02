@@ -77,11 +77,14 @@ class Database(Database):
 
     # Returns a user from the repository, using a Mongo Id
     def get_user_by_id(self, id):
+        from bson.objectid import ObjectId
+
         try:
-            doc = self.collection.find_one({"_id": id})
+            doc = self.collection.find_one({"_id": ObjectId(id)})
             if doc is None:
                 return 'userNotFound'
             else:
+                doc['_id'] = id
                 return doc
         except InvalidId:
             raise DataNotFound()

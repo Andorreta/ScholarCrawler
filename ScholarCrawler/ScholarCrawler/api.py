@@ -75,6 +75,10 @@ def api_function(called_function=None):
         message = api_extract_articles()
     elif called_function == 'get_articles':
         message = api_get_articles()
+    elif called_function == 'get_settings':
+        message = api_get_user_settings()
+    elif called_function == 'store_settings':
+        message = api_store_user_settings()
     else:
         message = 'Function doesn\'t exist or not implemented'
 
@@ -153,6 +157,7 @@ def api_signup(signup_request):
         'password': signup_request.form.get('passwordSignUpInput'),
         'scholarUser': signup_request.form.get('usernameSignUpInput'),
         'scholarAliases': [],
+        'unusedScholarAliases': [],
     }
     db.add_new_user(doc)
 
@@ -187,7 +192,7 @@ def api_logout():
 def api_extract_articles():
     from .crawler.crawlerGeneral import create_crawler_and_extract
 
-    # TODO ya empieza el Scheduler y hay que ver si crea los jobs o simplemente no lo los crea
+    # Start a 1 time Scheduler job to extract the data
     return connect_scheduler().add_one_time_job(function_name=create_crawler_and_extract,
                                                 func_args={'user_data': session['user'],
                                                            'desired_crawler': 'googleScholarArticles'},
@@ -210,7 +215,27 @@ def api_get_articles():
 
 # Get the User settings from the database
 def api_get_user_settings():
-    return connect_db().get_user_by_id(session['user']['id'])
+    settings = connect_db().get_user_by_id(session['user']['id'])
+
+    if settings is 'userNotFound':
+        return {
+            'error': 'Unable to retrieve ' + session['user']['name'] + ' settings'
+        }
+
+    # Remove some key user settings to avoid data compromising
+    del settings['_id']
+    del settings['password']
+
+    # Todo mostrar tambien los datos de los jobs de extraccion
+
+    return settings
+
+
+# Store the User settings
+def api_store_user_settings():
+    return {
+            'error': 'WORK IN PROGRESS: Function not implemented'
+        }
 
 
 # TODO FUNCIONES A IMPLEMENTAR

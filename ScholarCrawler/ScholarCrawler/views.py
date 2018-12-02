@@ -79,14 +79,34 @@ def signup(default_url='home'):
 
 @app.route('/settings')
 @login_required
-def settings():
+def settings(default_url='home'):
     # Renders the crawler user settings page
+    api_call = make_api_callback('api_function', 'get_settings')
+
+    if 'error' in api_call['message']:
+        flash(api_call['message']['error'])
+        return redirect(request.referrer) or redirect(url_for(default_url))
+
     return render_template(
         'settings.html',
         title='Settings',
         year=datetime.datetime.now().year,
-        # settings=connect_db().get_user_config() # TODO añadir esto y una funcion para autorefrescar la pagina de settings al cambiar algo.
+        settings=api_call['message']
     )
+
+
+@app.route('/store_settings', methods=['GET', 'POST'])
+@login_required
+def store_settings(default_url='settings'):
+    # Check the request method and the database for data #
+    if request.method != 'POST':
+        error = 'Bad request type: ' + request.method
+    else:
+        api_call = make_api_callback('api_function', 'store_settings')
+        error = api_call['message']
+
+    flash(error)
+    return redirect(request.referrer) or redirect(url_for(default_url))
 
 
 @app.route('/articles')

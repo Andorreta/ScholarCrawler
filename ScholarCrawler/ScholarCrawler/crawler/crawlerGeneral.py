@@ -13,9 +13,8 @@ def create_crawler(user_data, desired_crawler):
     # Creates a crawler that will do the extraction and processing tasks
     crawler = Crawler
 
-    # TODO Poner un switch que cargue el crawler necesario según lo que se le mande como segundo parametro.
-    # TODO Un IF-ELSE es muy chapucero... Si se hace, se hace bien
-    if desired_crawler == 'googleScholarArticles':
+    # Select the desired crawler for the extraction
+    if desired_crawler == 'googleScholarArticles-cli':
         from crawler.googleScholarArticles import GoogleScholarArticles
         crawler = GoogleScholarArticles
 

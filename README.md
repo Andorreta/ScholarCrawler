@@ -29,3 +29,17 @@ Google Scholar Web page crawler
 ## Update 2018-11-10:
 * He conseguido hacer funcionar el ProxyTor y añadir un control de errores un poco mas complejo.
     * **POR HACER:** Hay un fallo cuando sale un captcha, parece que proxy cambia de IP, pero no repite la ultima request, por lo que nos manda a la pagina principal de google scholar y se queda en bucle infinito allí.
+    
+## Update 2018-11-17:
+* Al ver que la descarga con herramientas CLI siempre me dan captchas, voy a probar a usar un navegador headless (puppeteer(Chrome)) para la extracción de los datos.
+    * Esto implica cambiar las 2 clases del crawler. El procesador puede seguri tal cual está, pero voy a tener que definir un metodo para usar el navegador headless que se pueda usa en conjunto con los metodos ya definidos
+        * El metodo CLI requiere generar todas las peticiones que se van a usar y establecer el orden de ejecución (cabecera, URL, Cookies y parametros).
+        * El metodo Headless solo necesita la URL, los datos que se van a usar para la navegación y el esquema de navegación
+    * Con esto podemos ver que hay cosas en comun:
+        * La URL principal del portal (porque no vamos a poder hacer una extracción desde la URL de los datos en CLI, por las cookies y los sistemas anti-scrapping)
+        * Los 2 van a necesitar de una función que defina el comportamiento del crawler para llegar al fichero del que vamos a extraer los datos.
+            * En el caso de CLI van a ser llamadas a funciones para hacer una cadena de Peticiones
+            * En el caso de Headless van a ser las acciones a realizar en la web (Hacer clic en botones e introducir datos)
+        * Una función de procesado de la pagina de los datos, que en principio tendría que ser la misma para los 2 caso, pero tal vez haya que separarlo
+            * Esto se debe a que desde CLI podemos invocar a una API en lugar de hacer toda la navegación por la web
+    * **Nota:** Al usar el navegador en modo headless, se le añade el Flag Headless en el Useragent, mirar como arreglarlo (como minimo con chrome pasa eso)
