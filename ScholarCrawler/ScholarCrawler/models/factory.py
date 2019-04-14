@@ -124,27 +124,70 @@ class Scheduler(object):
     def check_connection(self):
         pass
 
+    # Check if the Scheduler is running
+    def get_status(self):
+        if self.scheduler.running:
+            return 'Running'
+        else:
+            return 'Stopped'
+
     def start_scheduler(self):
         self.scheduler.start()
 
     def stop_scheduler(self):
         self.scheduler.shutdown()
 
-# TODO se puede cambiar el extract para que en lugar de hacer la extracción directamente,
-# TODO cree un job y lo lance al instante y luego añadir un listener para que cuando haya acabado el job
-# TODO mande un mensaje por pantalla para indicar que ya ha acabado la descarga (usando un flash)
-    def add_scheduled_job(self, function_name, trigger=None, id=None, name=None, replace=True):
-        pause = None
+    # TODO añadir un listener para que cuando haya acabado el job
+    # TODO mande un mensaje por pantalla para indicar que ya ha acabado la descarga (usando un flash) -> Usar el CHeckJobStatus
+    def add_scheduled_job(self, function_name, func_args, user_id, cron):
+        from apscheduler.triggers.cron import CronTrigger
+        import time
 
-        # Check if we got all the desired values
+        trigger = CronTrigger(day=cron['day'], hour=cron['hour'], minute=cron['minute'], second=cron['second'])
+        job = self.scheduler.add_job(func=function_name, trigger=trigger, kwargs=func_args,
+                                      name=user_id + str(time.time()) + '_scheduled_job', replace_existing=True)
 
-        self.scheduler.add_job(func=function_name, trigger=trigger, id=id, name=name, replace_existing=replace)
+        return job.id
 
+    # Remove a Job from the scheduler
+    def remove_scheduled_job(self, job_id):
+        job = self.check_job_status(job_id)
+
+        if job is None:
+            return {
+                'error': True,
+                'message': 'No Job with this ID',
+            }
+
+        self.scheduler.remove_job(job_id)
+        return {
+            'error': False,
+            'message': 'Successfully removed the scheduled task',
+        }
+
+    # Add a job to be executed one time (immediate execution)
     def add_one_time_job(self, function_name, func_args, user_id):
         from apscheduler.triggers.date import DateTrigger
 
-        self.scheduler.add_job(func=function_name, trigger=DateTrigger(), kwargs=func_args,
-                               name=user_id + '_onetime_job', replace_existing=True)
+        job = self.scheduler.add_job(func=function_name, trigger=DateTrigger(), kwargs=func_args,
+                                     name=user_id + '_onetime_job', replace_existing=True)
+
+        return job.id
+
+    # Get the Job Status TODO ver si se puede conseguir el estado de un onetime job
+    def check_job_status(self, job_id):
+        job = self.scheduler.get_job(job_id)
+
+        if job is None:
+            return {
+                'error': True,
+                'message': 'No Job with this ID',
+            }
+
+        return {
+            'args': job.kwargs,
+            'next_run_time': str(job.next_run_time),
+        }
 
 
 class User(object):

@@ -4,20 +4,33 @@
 
 <h2>{{title}} for {{settings.name}}</h2>
 
-<form class="form" role="form" method="post" action="{{url_for('store_settings')}}" accept-charset="UTF-8" id="user_settings">
-    <div class="input-group">
-        <span class="input-group-addon"><i class="glyphicon glyphicon-user"></i></span>
-        <input id="email" type="text" class="form-control" name="email" placeholder="{{ settings.mail }}">
+<form class="form" role="form" method="post" action="{{url_for('store_settings')}}" accept-charset="UTF-8"
+      id="user_settings">
+    <div class="form-group">
+        <h3>User Settings:</h3>
+        <div class="input-group">
+            <span class="input-group-addon"><i class="glyphicon glyphicon-user"></i> User Mail</span>
+            <input id="email" type="text" class="form-control" name="email" placeholder="{{ settings.mail }}">
+        </div>
+        <div class="input-group">
+            <span class="input-group-addon"><i class="glyphicon glyphicon-lock"></i> User Password</span>
+            <input id="password" type="password" class="form-control" name="password" placeholder="Type a new password">
+        </div>
+        <div class="input-group">
+            <span class="input-group-addon"><i
+                    class="glyphicon glyphicon-search"></i> Google Scholar Search value</span>
+            <input id="scholarUser" type="text" class="form-control" name="scholarUser"
+                   placeholder="{{ settings.scholarUser }}">
+        </div>
     </div>
-    <div class="input-group">
-        <span class="input-group-addon"><i class="glyphicon glyphicon-lock"></i></span>
-        <input id="password" type="password" class="form-control" name="password" placeholder="Type a new password">
+
+    <div class="form-group text-center">
+        <button type="submit" class="btn btn-primary">Save changes</button>
     </div>
-    <div class="input-group">
-        <span class="input-group-addon">Google Scholar Search value</span>
-        <input id="scholarUser" type="text" class="form-control" name="Google Scholar Search value"
-               placeholder="{{ settings.scholarUser }}">
-    </div>
+</form>
+
+<form class="form" method="post" action="{{url_for('store_aliases')}}" accept-charset="UTF-8"
+      id="user_aliases">
     <div class="form-group">
         <h3>Google Scholar Aliases:</h3>
         <ul id="scholarAliases" class="list-group">
@@ -26,9 +39,10 @@
                 <label class="checkbox-inline">
                     <input type="checkbox" value="" checked>
                     {{ aliases }}
-                    <a href="#" class="btn btn-primary a-btn-slide-text">
+                    <a href="#" class="btn a-btn-slide-text">
                         <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>
                     </a>
+                    <input type="hidden" name="aliases[{{ loop.index }}]" value="{{ aliases }}"/>
                 </label>
             </li>
             {% endfor %}
@@ -38,52 +52,50 @@
                 <label class="checkbox-inline">
                     <input type="checkbox" value="">
                     {{ aliases }}
-                    <a href="#" class="btn btn-primary a-btn-slide-text">
+                    <a href="#" class="btn a-btn-slide-text">
                         <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>
                     </a>
+                    <input type="hidden" name="unusedAliases[{{ loop.index }}]" value="{{ aliases }}"/>
                 </label>
             </li>
             {% endfor %}
         </ul>
         <p>Add new Alias Manually:
             <input type="text" id="newScholarAlias">
-            <a href="#" class="btn btn-primary a-btn-slide-text" onclick='addNewAlias()'>
+            <a id="newScholarAliasBtn" href="#" class="btn btn-primary a-btn-slide-text">
                 <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
             </a>
         </p>
     </div>
 
-    <div class="form-group">
-        <button type="submit" class="btn btn-primary btn-block">Save changes</button>
+    <div class="form-group text-center">
+        <button type="submit" class="btn btn-primary">Save changes</button>
     </div>
 </form>
 
 <script>
-    var list = document.getElementById('scholarAliases');
+    $(document).ready(function() {
+        $("#scholarAliases li input[type='checkbox']").change(function () {
+            if (this.checked != true) {
+                $(this).siblings("input[type=hidden]").attr('name', 'unusedAliases[' + $.now() + ']');
+            } else {
+                $(this).siblings("input[type='hidden']").attr('name', 'aliases[' + $.now() + ']');
+            }
+        });
 
-    function addNewAlias() {
-        var scholarAlias = document.getElementById('newScholarAlias').value;
-        var ul = document.createElement('li');
-        ul.setAttribute('class', 'list-group-item')
-        var label = document.createElement('label');
-        label.setAttribute('class', 'checkbox-inline')
-        var input = document.createElement('input');
-        input.type = 'checkbox'
-        input.setAttribute('checked', '')
-        var a = document.createElement('a');
-        a.setAttribute('class', 'btn btn-primary a-btn-slide-text')
-        a.setAttribute('href', '#')
-        var span = document.createElement('span');
-        span.setAttribute('class', 'glyphicon glyphicon-remove')
+        $("#scholarAliases li a").click(function (e) {
+            $(this).closest("li").remove();
+        });
 
-        label.appendChild(input);
-        label.appendChild(document.createTextNode(scholarAlias));
-        label.appendChild(a);
-        a.appendChild(span);
-        ul.appendChild(label);
-        list.appendChild(ul);
-    }
-
+        $("#newScholarAliasBtn").click(function (e) {
+            var scholarAlias = $("#newScholarAlias").val();
+            var html =  '<li class="list-group-item"><label class="checkbox-inline"><input type="checkbox" ' +
+                'value="" checked>' + scholarAlias + '<a href="#" class="btn a-btn-slide-text">' +
+                '<span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a><input type="hidden" ' +
+                'name="aliases[' + $.now() + ']" value="' + scholarAlias + '"/></label></li>';
+            $("#scholarAliases").append(html);
+        });
+    });
 </script>
 
 {% endblock %}

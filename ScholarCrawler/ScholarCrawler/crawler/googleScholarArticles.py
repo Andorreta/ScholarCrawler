@@ -2,14 +2,11 @@
 Package to extract the Google Scholar data using cli tools (like curl, requests,...)
 """
 
-from .crawlerGeneral import *
-
 import re
-
 from fake_useragent import UserAgent
 from bs4 import BeautifulSoup
 
-from settings import REPOSITORY_NAME, REPOSITORY_SETTINGS
+from .crawlerGeneral import *
 
 
 class GoogleScholarArticles(Crawler):
@@ -20,26 +17,37 @@ class GoogleScholarArticles(Crawler):
 
         super().__init__(user_data)
 
-        self.domain = 'scholar.google.com'
+        self.domain = 'scholar.google.es'
         self.scholarUser = user_data['scholarUser']
         self.scholarAliases = user_data['scholarAliases']
         self.unusedScholarAliases = []
         self.lastRequestUrl = ''
-        self.mongoId = user_data['id']
+        self.repoUserId = user_data['id']
         self.user = user_data['user']
         self.cookieJar = cookies.RequestsCookieJar()
         self.pages = 1
 
     # Make the articles extraction
-    # TODO dividir para que separe los articulos en 2 colecciones. La temporal se va a borrar antes de la extraccion.
     def data_extraction(self):
         # Start the data extraction
         articles_count = 0
-        url = 'initial'
+        url = None
+        continue_extraction = True
 
-        print('\nScholar main page Crawler for: ' + self.scholarUser + '\n')  # TODO Test
+        # TODO Test message for debugging
+        print('\nScholar Crawler for: ' + self.scholarUser + '\n')
 
-        while url is not None:
+        # Extract the main portal page
+        query_parameters = self.generate_main_page_query()
+        html_source = self.extract_page(query_parameters)
+        self.lastRequestUrl = query_parameters['url']
+
+        # Extract the NID generation page
+        query_parameters = self.generate_nid_query()
+        html_source = self.extract_page(query_parameters)
+        self.lastRequestUrl = query_parameters['url']
+
+        while continue_extraction:
             # Generate the query Parameters
             query_parameters = self.generate_query(url)
 
@@ -47,44 +55,80 @@ class GoogleScholarArticles(Crawler):
             if 'proxy' in query_parameters and query_parameters['proxy'] is None:
                 return 'Process aborted. Proxy connection failure'
 
-            # Download the data
-            html_source = self.extract_page(query_parameters)  # Download the page and save it in the tempDir
+            # Download the page and save it in the tempDir
+            html_source = self.extract_page(query_parameters)
+            self.lastRequestUrl = query_parameters['url']
 
             # process the downloaded data
             data = self.data_process(html_source)
 
             # Check if the articles contain the user as author
-            if data['user'] is not None:
-                url = self.get_next_page_url(html_source.content)  # get next page url
+            if data is not None and 'articles' in data and data['articles'] is not None:
+                # get next page url
+                url = self.get_next_page_url(html_source.content)
+
+                self.pages = self.pages + 1
+                articles_count += len(list(data['articles']))
+
+                # print('   Next Url: ' + str(url))  # TODO Test
+                # print('    Articles processed: ' + str(len(list(data['articles']))))  # TODO Tests
+
             else:
-                url = None
-
-            self.pages = self.pages + 1
-            articles_count += len(list(data['user'])) + len(list(data['others']))
-
-            # TODO Tests
-            print('    Articles processed: ' + str(len(list(data['user']))))
-            if articles_count >= 200 or self.pages >= 20:
                 url = ''
 
-        # Zip the extracted data and move it to the extraction DIR
-        shutil.make_archive(self.extractionZip, 'zip', self.tempDir)
+            # TODO Tests (Limit the max number of extractions to avoid a Google Ban/Captcha)
+            if articles_count >= 200 or self.pages >= 20:
+                continue_extraction = False
+            else:
+                # Check if the URL is valid
+                continue_extraction = self.validate_url(url)
 
-        # Remove the temporary folder
-        shutil.rmtree(self.tempDir, ignore_errors=True)
+        # TODO Test message for debugging
+        print('\nExtraction for ' + self.scholarUser + ' finished with ' + str(articles_count) + ' articles\n')
 
         # Return the job statistics
         return 'Process finished. Articles: ' + str(articles_count)
 
-    # Function to generate the query parameters
+    # Function to check if the URL is valid, to continue the extraction
+    def validate_url(self, url=None):
+        if url is None:
+            return False
+
+        regex = re.compile('/scholar\?', re.IGNORECASE)
+
+        return True if regex.match(url) else False
+
+    # Function to generate the Data extraction query parameters
     def generate_query(self, url=None):
         return {
             'url': self.generate_articles_url(),
             'params': self.generate_articles_get_parameters(url),
             'headers': self.generate_articles_headers(),
-            'proxy': self.generate_articles_proxy(),
+            # 'proxy': self.generate_articles_proxy(),  # Uncomment to use Tor
             'filename': self.generate_articles_filename(),
             'retries': 3,
+            'retries_wait_range': [6, 10],
+        }
+
+    # Function to generate the main page query parameters
+    def generate_main_page_query(self):
+        return {
+            'url': self.generate_main_page_url(),
+            'headers': self.generate_articles_headers(),
+            # 'proxy': self.generate_articles_proxy(),  # Uncomment to use Tor
+            'filename': self.generate_main_page_filename(),
+            'retries': 2,
+            'retries_wait_range': [6, 10],
+        }
+
+    # Function to generate the NID query parameters
+    def generate_nid_query(self):
+        return {
+            'url': self.generate_nid_url(),
+            'headers': self.generate_articles_headers(),
+            # 'proxy': self.generate_articles_proxy(),  # Uncomment to use Tor
+            'filename': self.generate_nid_filename(),
+            'retries': 2,
             'retries_wait_range': [6, 10],
         }
 
@@ -92,16 +136,22 @@ class GoogleScholarArticles(Crawler):
     def generate_articles_url(self):
         return 'https://' + self.domain + '/scholar'
 
+    # Function to generate the articles extraction Url
+    def generate_main_page_url(self):
+        return 'https://' + self.domain
+
+    # Function to generate the articles extraction Url
+    def generate_nid_url(self):
+        return 'https://' + self.domain + '/gen_nid'
+
     # Function to generate the articles extraction GET Parameters
     def generate_articles_get_parameters(self, url=None):
         if url is None or url is 'initial':
             return {
-                'q': '"' + self.scholarUser + '"',
-                'hl': 'en',
-                'btnG': 'Search Scholar',
+                'q': self.scholarUser,
+                'hl': 'all',
+                'btnG': '',
                 'as_sdt': '0,5',
-                'as_sdtp': '',
-                'lookup': '0'
             }
         else:
             # Parse the parameters of the url and return them
@@ -117,7 +167,7 @@ class GoogleScholarArticles(Crawler):
             'Accept-Language': 'en-US,en;q=0.5',
             'Cache-Control': 'max-age=0',
             'Connection': 'keep-alive',
-            'Host': 'scholar.google.com',
+            'Host': self.domain,
             'Referer': self.lastRequestUrl,
             'Upgrade-Insecure-Requests': '1'
         }
@@ -127,10 +177,18 @@ class GoogleScholarArticles(Crawler):
         from .httpProviders.proxyTor import ProxyTor
         return ProxyTor().set_connection()
 
-    # Function to generate the filename
+    # Function to generate the articles extraction query filename
     def generate_articles_filename(self, extension='.html'):
-        return 'articles-' + self.mongoId + '-page-' + str(self.pages) + '-' +\
+        return 'articles-' + self.repoUserId + '-page-' + str(self.pages) + '-' + \
                str(datetime.datetime.now().timestamp()) + extension
+
+    # Function to generate the main page query  filename
+    def generate_main_page_filename(self, extension='.html'):
+        return 'mainPage-' + self.repoUserId + '-' + str(datetime.datetime.now().timestamp()) + extension
+
+    # Function to generate the main page query  filename
+    def generate_nid_filename(self, extension='.html'):
+        return 'nidQuery-' + self.repoUserId + '-' + str(datetime.datetime.now().timestamp()) + extension
 
     """
     Data Processing Part
@@ -140,39 +198,43 @@ class GoogleScholarArticles(Crawler):
     def data_process(self, html_source):
         # Import the factory
         from models.factory import connect_to_database
+        from ScholarCrawler import app
 
         # Check if we got an error during the extraction
         if 'error' in html_source:
             data = {
-                'user': None,
-                'others': None,
+                'articles': None,
+                'unknown_aliases': None,
             }
         else:
             # Process the page to get the articles
             data = self.process_page(html_source.content)
 
-            # Add the user articles to the DB
-            if data['user'] is not None:
-                db = connect_to_database(REPOSITORY_NAME, REPOSITORY_SETTINGS)
-                db.add_new_articles(self.mongoId, data['user'])
+            # Add the user articles to the DB and the unknown/new aliases
+            if data is not None:
+                db = connect_to_database(app.config['REPOSITORY_NAME'], app.config['REPOSITORY_SETTINGS'])
 
-            # Add the user articles to the DB
-            if data['user'] is not None:
-                db = connect_to_database(REPOSITORY_NAME, REPOSITORY_SETTINGS)
-                db.add_new_articles_others(self.mongoId, data['others'])
+                if 'articles' in data and data['articles'] is not None:
+                    db.add_new_articles(self.repoUserId, data['articles'])
+
+                if 'unknown_aliases' in data and data['unknown_aliases'] is not None:
+                    db.add_new_unused_aliases(self.repoUserId, data['unknown_aliases'])
 
         return data
 
     # Process the Google Scholar articles page
     def process_page(self, html_source):
         output = {
-            'user': [],
-            'others': [],
+            'articles': [],
+            'unknown_aliases': [],
         }
 
         # Load the DOM Crawler and filter the articles from the HTML
         soup = BeautifulSoup(html_source, 'html5lib')
-        articles = soup.select('.gs_r')
+        articles = self.get_articles_list(soup)
+
+        if articles is None:
+            return None
 
         for article in articles:
             # print('   Next article: ' + article.get_text()) # TODO Test
@@ -180,113 +242,343 @@ class GoogleScholarArticles(Crawler):
 
             # Add the data to it's corresponding group
             if data is not None and 'authors' in data:
-                output['user'].append(data) if self.has_author(data) else output['others'].append(data)
+                output['articles'].append(data)
+
+                # Add the missing unused authors to the list
+                for author in data['authors']:
+                    if author not in self.scholarAliases:
+                        output['unknown_aliases'].append(author)
 
         return output
 
     # Process an article
     def process_article(self, article_source):
-        soup = BeautifulSoup(article_source, 'html.parser')
-        article = {'articleId': '', 'title': '', 'date': '', 'source': '', 'description': '', 'quotes': 0,
-                   'versions': 0, 'related': '', 'authors': []}
+        soup = BeautifulSoup(article_source, 'html5lib')
 
         # Get the Article title
-        titles = soup.select('.gs_ri > .gs_rt > a')
-        for title in titles:
-            article['title'] = title.get_text()
-        # Check if we got the user profile field or an article
-        if article['title'] == '':
-            return None
+        title = self.get_article_title(soup)
 
         # Get the authors
-        authors = soup.select('.gs_ri > .gs_a > a')
-        for author in authors:
-            article['authors'].append(author.get_text())
+        authors = self.get_article_authors(soup)
 
-        # Check if we got the user profile field or an article
-        if not article['authors']:
+        # Check to know if we got the user profile field or an article
+        if title is None or authors is None:
             return None
 
-        # Get the article Id
-        article_id = soup.select('.gs_r')
-        if len(article_id) > 0:
-            article['articleId'] = article_id[0]['data-cid']
-
-        # Get the Article description
-        descriptions = soup.select('.gs_ri > .gs_rs')
-        for description in descriptions:
-            article['description'] = description.get_text()
-
-        # Get the article date
-        dates = soup.select('.gs_ri > .gs_a')
-        for date in dates:
-            regex = re.compile('\s(\d{4})\s-')
-            article['date'] = str(regex.findall(date.get_text())[0])
-
-        # Get the source URL
-        sources = soup.select('.gs_ri > .gs_rt > a')
-        for source in sources:
-            article['source'] = source['href']
-
-        # Get the article bottom line
-        bottom_line = soup.select('.gs_ri > .gs_fl > a')
-        for part in bottom_line:
-            # Find how many times has been quoted
-            regex = re.compile('Cited by\s(\d+)', re.IGNORECASE)
-            if regex.match(part.get_text()):
-                article['quotes'] = str(regex.match(part.get_text())[1])
-                continue
-
-            # Get the related articles URL
-            if part.get_text().find('Related articles') != -1:
-                article['related'] = 'https://scholar.google.com' + str(part['href'])
-                continue
-
-            # Get the other versions
-            regex = re.compile('All\s(\d+)\sversions', re.IGNORECASE)
-            if regex.match(part.get_text()):
-                article['versions'] = str(regex.match(part.get_text())[1])
-                continue
+        article = {
+            'articleId': self.get_article_id(soup),             # Get the article Id
+            'title': title,
+            'date': self.get_article_date(soup),                # Get the article date
+            'source': self.get_article_source_url(soup),        # Get the source URL
+            'description': self.get_article_description(soup),  # Get the Article description
+            'quotes': self.get_article_quotes(soup),            # Find how many times has been quoted
+            'versions': self.get_article_versions(soup),
+            'related': self.get_article_related_urls(soup),     # Get the related articles URL
+            'authors': authors
+        }
 
         # print('   Article: ' + str(article))  # TODO Test output to debug the code
         return article
 
-    # TODO cambiar esto para que no añada el domain. De ese modo se puede reusar el crawler para otros dominios distintos
-    def get_next_page_url(self, html_source):
-        soup = BeautifulSoup(html_source, 'html5lib')
-        url = soup.select('#gs_n td[align~=left] > a')
+    # Get the articles list
+    def get_articles_list(self, source, params=None):
+        versions = [
+            'get_articles_list_20181018',
+        ]
 
-        if 0 in url and 'href' in url[0] and url[0]['href'] is not None:
-            url = 'https://' + self.domain + url[0]['href']
+        return self.find_version_array(versions, source, params)
 
-        print('   Next Url: ' + str(url))  # TODO Test
+    # Get the articles list (version: 2018-10-18)
+    def get_articles_list_20181018(self, source, params=None):
+        if not isinstance(source, BeautifulSoup):
+            return None
 
-        return str(url)
+        return source.select('.gs_r')
 
-    # Check if the article is from the user
-    def has_author(self, data):
-        for author in data['authors']:
-            for alias in self.scholarAliases:
-                if alias in author:
-                    return True
+    # Get the article title
+    def get_article_title(self, source, params=None):
+        versions = [
+            'get_article_title_20181018',
+        ]
 
-        return False
+        return self.find_version_text(versions, source, params)
 
-        # Checks for possible errors in the download
+    # Get the article title (version: 2018-10-18)
+    def get_article_title_20181018(self, source, params=None):
+        if not isinstance(source, BeautifulSoup):
+            return None
 
+        titles = source.select('.gs_ri > .gs_rt > a')
+        for title in titles:
+            return title.get_text()
+        return None
+
+    # Get the article Authors
+    def get_article_authors(self, source, params=None):
+        versions = [
+            'get_article_authors_20181018',
+        ]
+
+        return self.find_version_array(versions, source, params)
+
+    # Get the article Authors (version: 2018-10-18)
+    def get_article_authors_20181018(self, source, params=None):
+        if not isinstance(source, BeautifulSoup):
+            return None
+
+        authors_list = []
+        authors = source.select('.gs_ri > .gs_a > a')
+        for author in authors:
+            authors_list.append(author.get_text())
+
+        return authors_list
+
+    # Get the article id
+    def get_article_id(self, source, params=None):
+        versions = [
+            'get_article_id_20181018',
+        ]
+
+        return self.find_version_text(versions, source, params)
+
+    # Get the article id (version: 2018-10-18)
+    def get_article_id_20181018(self, source, params=None):
+        if not isinstance(source, BeautifulSoup):
+            return None
+
+        article_id = source.select('.gs_r')
+
+        return article_id[0]['data-cid'] if len(article_id) > 0 and 'data-cid' in article_id[0].attrs else None
+
+    # Get the article description
+    def get_article_description(self, source, params=None):
+        versions = [
+            'get_article_description_20181018',
+        ]
+
+        return self.find_version_text(versions, source, params)
+
+    # Get the article description (version: 2018-10-18)
+    def get_article_description_20181018(self, source, params=None):
+        if not isinstance(source, BeautifulSoup):
+            return None
+
+        descriptions = source.select('.gs_ri > .gs_rs')
+        for description in descriptions:
+            return description.get_text()
+        return None
+
+    # Get the article date
+    def get_article_date(self, source, params=None):
+        versions = [
+            'get_article_date_20181018',
+        ]
+
+        return self.find_version_text(versions, source, params)
+
+    # Get the article date (version: 2018-10-18)
+    def get_article_date_20181018(self, source, params=None):
+        if not isinstance(source, BeautifulSoup):
+            return None
+
+        dates = source.select('.gs_ri > .gs_a')
+        for date in dates:
+            regex = re.compile('\s(\d{4})\s-')
+            return str(regex.findall(date.get_text())[0])
+        return None
+
+    # Get the article source url
+    def get_article_source_url(self, source, params=None):
+        versions = [
+            'get_article_source_url_20181018',
+        ]
+
+        return self.find_version_text(versions, source, params)
+
+    # Get the article source url (version: 2018-10-18)
+    def get_article_source_url_20181018(self, source, params=None):
+        if not isinstance(source, BeautifulSoup):
+            return None
+
+        sources_urls = source.select('.gs_ri > .gs_rt > a')
+        for url in sources_urls:
+            return url['href']
+        return None
+
+    # Get the article bottom line
+    def get_article_bottom_line(self, source, params=None):
+        versions = [
+            'get_article_bottom_line_20181018',
+        ]
+
+        return self.find_version_array(versions, source, params)
+
+    # Get the article bottom line (version: 2018-10-18)
+    def get_article_bottom_line_20181018(self, source, params=None):
+        if not isinstance(source, BeautifulSoup):
+            return None
+
+        return source.select('.gs_ri > .gs_fl > a')
+
+    # Get the article quotes
+    def get_article_quotes(self, source, params=None):
+        versions = [
+            'get_article_quotes_20190413',
+            'get_article_quotes_20181018',
+        ]
+
+        text = self.find_version_text(versions, source, params)
+
+        return int(text) if text is not None else 0
+
+    # Get the article quotes (version: 2019-04-13)
+    def get_article_quotes_20190413(self, source, params=None):
+        if not isinstance(source, BeautifulSoup):
+            return None
+
+        bottom_line = self.get_article_bottom_line(source, params)
+
+        if bottom_line is None or not bottom_line:
+            return None
+
+        regex = re.compile('Citado por\s*(\d+)', re.IGNORECASE)
+        for part in bottom_line:
+            if regex.match(part.get_text()):
+                return str(regex.match(part.get_text())[1])
+
+        return None
+
+    # Get the article quotes (version: 2018-10-18)
+    def get_article_quotes_20181018(self, source, params=None):
+        if not isinstance(source, BeautifulSoup):
+            return None
+
+        bottom_line = self.get_article_bottom_line(source, params)
+
+        if bottom_line is None or not bottom_line:
+            return None
+
+        regex = re.compile('Cited by\s(\d+)', re.IGNORECASE)
+        for part in bottom_line:
+            if regex.match(part.get_text()):
+                return str(regex.match(part.get_text())[1])
+
+        return None
+
+    # Get the article related articles urls
+    def get_article_related_urls(self, source, params=None):
+        versions = [
+            'get_article_related_urls_20190413',
+            'get_article_related_urls_20181018',
+        ]
+
+        return self.find_version_text(versions, source, params)
+
+    # Get the article related articles urls (version: 2019-04-13)
+    def get_article_related_urls_20190413(self, source, params=None):
+        if not isinstance(source, BeautifulSoup):
+            return None
+
+        bottom_line = self.get_article_bottom_line(source, params)
+
+        if bottom_line is None or not bottom_line:
+            return None
+
+        for part in bottom_line:
+            if part.get_text().find('Artículos relacionados') != -1:
+                return 'https://' + self.domain + str(part['href'])
+
+        return None
+
+    # Get the article related articles urls (version: 2018-10-18)
+    def get_article_related_urls_20181018(self, source, params=None):
+        if not isinstance(source, BeautifulSoup):
+            return None
+
+        bottom_line = self.get_article_bottom_line(source, params)
+
+        if bottom_line is None or not bottom_line:
+            return None
+
+        for part in bottom_line:
+            if part.get_text().find('Related articles') != -1:
+                return 'https://' + self.domain + str(part['href'])
+
+        return None
+
+    # Get the article versions
+    def get_article_versions(self, source, params=None):
+        versions = [
+            'get_article_versions_20190413',
+            'get_article_versions_20181018',
+        ]
+
+        text = self.find_version_text(versions, source, params)
+
+        return int(text) if text is not None else 0
+
+    # Get the article version (version: 2019-04-13)
+    def get_article_versions_20190413(self, source, params=None):
+        if not isinstance(source, BeautifulSoup):
+            return None
+
+        bottom_line = self.get_article_bottom_line(source, params)
+
+        if bottom_line is None or not bottom_line:
+            return None
+
+        regex = re.compile('Las\s*(\d+)\s*versi', re.IGNORECASE)
+        for part in bottom_line:
+            if regex.match(part.get_text()):
+                return str(regex.match(part.get_text())[1])
+
+        return None
+
+    # Get the article version (version: 2018-10-18)
+    def get_article_versions_20181018(self, source, params=None):
+        if not isinstance(source, BeautifulSoup):
+            return None
+
+        bottom_line = self.get_article_bottom_line(source, params)
+
+        if bottom_line is None or not bottom_line:
+            return None
+
+        regex = re.compile('All\s*(\d+)\s*version', re.IGNORECASE)
+        for part in bottom_line:
+            if regex.match(part.get_text()):
+                return str(regex.match(part.get_text())[1])
+
+        return None
+
+    # Get the next Page URL
+    def get_next_page_url(self, source, params=None):
+        versions = [
+            'get_next_page_url_20181018',
+        ]
+
+        return self.find_version_text(versions, source, params)
+
+    # Get the next Page URL (version: 2018-10-18)
+    def get_next_page_url_20181018(self, source, params=None):
+        if not isinstance(source, BeautifulSoup):
+            source = BeautifulSoup(source, 'html5lib')
+
+        url = source.select('#gs_n td[align~=left] > a')
+
+        return url[0]['href'] if len(url) > 0 and 'href' in url[0].attrs and url[0]['href'] is not None else None
+
+    # Checks for possible errors in the download
     def extraction_error_check(self, html_source):
         error = super().extraction_error_check(html_source)
 
-        if not error['error']:
-            # Check if there're captchas in the HTML
-            captchas = re.compile('gs_captcha_f', re.IGNORECASE)
-            if captchas.match(html_source.text):
-                # Rotate the IP
-                from.httpProviders.proxyTor import ProxyTor
-                ProxyTor().rotate_ip()
-                error = {
-                    'error': True,
-                    'error_message': 'Captchas Detected',
-                }
+        # Check if there're captcha in the HTML to Rotate the IP (Connect to a new Tor circuit)
+        if "captcha" in html_source.text:
+            from .httpProviders.proxyTor import ProxyTor
+            ProxyTor().rotate_ip()
+            error = {
+                'error': True,
+                'error_message': 'Captchas Detected',
+            }
 
         return error

@@ -109,6 +109,20 @@ def store_settings(default_url='settings'):
     return redirect(request.referrer) or redirect(url_for(default_url))
 
 
+@app.route('/store_aliases', methods=['GET', 'POST'])
+@login_required
+def store_aliases(default_url='settings'):
+    # Check the request method and the database for data #
+    if request.method != 'POST':
+        error = 'Bad request type: ' + request.method
+    else:
+        api_call = make_api_callback('api_function', 'store_aliases')
+        error = api_call['message']
+
+    flash(error)
+    return redirect(request.referrer) or redirect(url_for(default_url))
+
+
 @app.route('/articles')
 @login_required
 def articles():
@@ -136,10 +150,14 @@ def extract(default_url='home'):
     flash("Extraction in progress")
     api_call = make_api_callback('api_function', 'extract_articles')
 
-    if api_call['message'] is None or int(api_call['message']['Articles']) == 0:
-        flash("Extraction Failed")
+    # TODO Hacer algo, como un evento/callback para que espere antes de devolver el mensaje de error o finalización
+    if api_call['message'] is None:
+        flash("Extraction schedule Failed")
     else:
-        flash("Extraction Successful")
+        flash("Extraction Started")
+
+        # TODO create an event listener to show when the job is done
+        # TODO you can use the jobID received in api_call['message'] to make the API send an event when the job is done
 
     return redirect(request.referrer) or redirect(url_for(default_url))
 
@@ -165,5 +183,6 @@ def about():
         year=datetime.datetime.now().year,
         db_name=api_call['message']['database'],
         comunitacion_protocol=api_call['message']['communication_protocol'],
-        scheduler_store=api_call['message']['scheduler_store']
+        scheduler_store=api_call['message']['scheduler_store'],
+        scheduler_status=api_call['message']['scheduler_status']
     )

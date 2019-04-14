@@ -11,11 +11,6 @@ from bson.json_util import dumps
 from .factory import *
 
 
-# Creates a user object from an user document # TODO quitar?¿ Si....
-def _user_from_doc(doc):
-    return User(str(doc['_id']))
-
-
 class Database(Database):
     # MongoDB database.
     def __init__(self, settings):
@@ -26,6 +21,8 @@ class Database(Database):
          - MONGODB_COLLECTION
         """
         self.name = 'MongoDB'
+        self.info = []
+
         if 'MONGODB_HOST' in settings:
             self.host = settings['MONGODB_HOST']
         else:
@@ -46,7 +43,7 @@ class Database(Database):
     def check_connection(self, max_delay=100):
         try:
             client = pymongo.MongoClient(self.host, serverSelectionTimeoutMS=max_delay)
-            client.server_info()  # Make the server info request to make a connection to the server
+            self.info = client.server_info()
         except pymongo.errors.ServerSelectionTimeoutError as err:
             print(err)
             return False
@@ -65,9 +62,12 @@ class Database(Database):
         return users
 
     # Returns a user from the repository, using the mail
-    def get_user_by_mail(self, user):
+    def get_user_by_mail(self, user_mail):
+        self.database = self.client['ScholarSettings']
+        self.collection = self.database['Users']
+
         try:
-            doc = self.collection.find_one({"mail": user})
+            doc = self.collection.find_one({"mail": user_mail})
             if doc is None:
                 return 'userNotFound'
             else:
@@ -76,15 +76,18 @@ class Database(Database):
             raise DataNotFound()
 
     # Returns a user from the repository, using a Mongo Id
-    def get_user_by_id(self, id):
+    def get_user_by_id(self, user_id):
         from bson.objectid import ObjectId
 
+        self.database = self.client['ScholarSettings']
+        self.collection = self.database['Users']
+
         try:
-            doc = self.collection.find_one({"_id": ObjectId(id)})
+            doc = self.collection.find_one({"_id": ObjectId(user_id)})
             if doc is None:
                 return 'userNotFound'
             else:
-                doc['_id'] = id
+                doc['_id'] = user_id
                 return doc
         except InvalidId:
             raise DataNotFound()
@@ -95,8 +98,20 @@ class Database(Database):
         self.collection = self.database['Users']
 
         try:
-            user = self.add_data_time(user)
-            self.collection.insert_one(user)
+            self.collection.insert_one(self.add_data_time(user))
+        except(InvalidId, ValueError):
+            raise DataNotFound()
+
+    # Updates an already existing user
+    def update_user_by_id(self, user_id, user_data):
+        from bson.objectid import ObjectId
+
+        self.database = self.client['ScholarSettings']
+        self.collection = self.database['Users']
+        del user_data['_id']
+
+        try:
+            self.collection.update({"_id": ObjectId(user_id)}, self.add_data_time(user_data))
         except(InvalidId, ValueError):
             raise DataNotFound()
 
@@ -109,48 +124,146 @@ class Database(Database):
         # Insert the articles to MongoDB
         try:
             for article in articles:
-                article = self.add_data_time(article)
-                self.collection.update({'articleId': article['articleId']}, article, upsert=True)
+                self.collection.update({'articleId': article['articleId']}, self.add_data_time(article), upsert=True)
         except(InvalidId, ValueError):
             raise DataNotFound()
 
-    # Adds new articles to the others user Collection
-    def add_new_articles_others(self, user_id, articles):
-        collection = 'articles_others_' + user_id
-        self.database = self.client['DataStorage']
-        self.collection = self.database[collection]
+    # Updates the currently used user aliases
+    def update_user_aliases(self, user_id, aliases):
+        if aliases is None:
+            return None
 
-        # Insert the articles to MongoDB
+        user_data = self.get_user_by_id(user_id)
+
+        if user_data == 'userNotFound':
+            raise DataNotFound()
+
+        # Update the currently used Aliases of the User
+        user_data['scholarAliases'] = aliases
+        self.update_user_by_id(user_id, user_data)
+
+    # Updates the currently unused user aliases
+    def update_unused_user_aliases(self, user_id, aliases):
+        if aliases is None:
+            return None
+
+        user_data = self.get_user_by_id(user_id)
+
+        if user_data == 'userNotFound':
+            raise DataNotFound()
+
+        # Update the currently used Aliases of the User
+        user_data['unusedScholarAliases'] = aliases
+        self.update_user_by_id(user_id, user_data)
+
+    # Adds a new unused user alias
+    def add_new_unused_aliases(self, user_id, aliases):
+        if aliases is None:
+            return None
+
+        user_data = self.get_user_by_id(user_id)
+
+        if user_data == 'userNotFound':
+            raise DataNotFound()
+
+        # Update the Unused Aliases of the User
+        for alias in aliases:
+            if alias not in user_data['unusedScholarAliases']:
+                user_data['unusedScholarAliases'].append(alias)
+
+        # Update the user in the repository
+        self.update_user_by_id(user_id, user_data)
+
+    # Get the user aliases
+    def get_user_aliases(self, user_id):
+        user_data = self.get_user_by_id(user_id)
+
+        if user_data == 'userNotFound':
+            raise DataNotFound()
+
+        return user_data['scholarAliases']
+
+    # Get the user unused aliases
+    def get_user_unused_aliases(self, user_id):
+        user_data = self.get_user_by_id(user_id)
+
+        if user_data == 'userNotFound':
+            raise DataNotFound()
+
+        return user_data['scholarAliases']
+
+    # Get the user assigned Scheduler Job IDs
+    def get_user_job_ids(self, user_id):
+        from bson.objectid import ObjectId
+
+        self.database = self.client['ScholarSettings']
+        self.collection = self.database['Users']
+
         try:
-            for article in articles:
-                article = self.add_data_time(article)
-                self.collection.update({'articleId': article['articleId']}, article, upsert=True)
-        except(InvalidId, ValueError):
+            doc = self.collection.find_one({"_id": ObjectId(user_id)})
+            if doc is None:
+                return 'userNotFound'
+            else:
+                return doc['schedulerJobs']
+        except InvalidId:
             raise DataNotFound()
+
+    # Adds a new Scheduler Job ID to the user
+    def add_new_scheduler_job_id(self, user_id, scheduler_job_id):
+        if scheduler_job_id is None:
+            return None
+
+        user_data = self.get_user_by_id(user_id)
+
+        if user_data == 'userNotFound':
+            raise DataNotFound()
+
+        # Update the Scheduler Job Ids of the User
+        if scheduler_job_id not in user_data['schedulerJobs']:
+            user_data['schedulerJobs'].append(scheduler_job_id)
+
+        # Update the user in the repository
+        self.update_user_by_id(user_id, user_data)
+
+    # Remove a Scheduler Job ID from the user
+    def remove_scheduler_job_id(self, user_id, scheduler_job_id):
+        if scheduler_job_id is None:
+            return None
+
+        user_data = self.get_user_by_id(user_id)
+
+        if user_data == 'userNotFound':
+            raise DataNotFound()
+
+        # Update the Scheduler Job Ids of the User
+        if scheduler_job_id in user_data['schedulerJobs']:
+            user_data['schedulerJobs'].remove(scheduler_job_id)
+
+        # Update the user in the repository
+        self.update_user_by_id(user_id, user_data)
 
     # Returns all the articles related to an user from the user collection
     def get_articles(self, user_id):
-        docs = []
+        docs = {'user': [], 'others': []}
         collection = 'articles_' + user_id
+        aliases = self.get_user_aliases(user_id)
+
         self.database = self.client['DataStorage']
         self.collection = self.database[collection]
 
         # Extract the data and Dump it to remove the BSON specific kirks
         for document in self.collection.find():
-            docs.append(json.loads(dumps(document)))
+            doc = json.loads(dumps(document))
+            doc['_id'] = doc['_id']['$oid']
 
-        return docs
+            location = 'others'
+            for alias in aliases:
+                if doc['authors'] is not None and alias in doc['authors']:
+                    location = 'user'
+                    break
 
-    # Returns all the articles related to an user from the others collection
-    def get_articles_others(self, user_id):
-        docs = []
-        collection = 'articles_others_' + user_id
-        self.database = self.client['DataStorage']
-        self.collection = self.database[collection]
-
-        # Extract the data and Dump it to remove the BSON specific kirks
-        for document in self.collection.find():
-            docs.append(json.loads(dumps(document)))
+            # Divide the articles into 2 groups (the user ones an the others)
+            docs[location].append(doc)
 
         return docs
 

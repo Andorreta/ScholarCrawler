@@ -2,7 +2,6 @@
 Data crawler for the different types of requests
 """
 
-import urllib3
 import os
 import datetime
 import shutil
@@ -14,7 +13,7 @@ def create_crawler(user_data, desired_crawler):
     crawler = Crawler
 
     # Select the desired crawler for the extraction
-    if desired_crawler == 'googleScholarArticles-cli':
+    if desired_crawler == 'googleScholarArticles' or desired_crawler == 'googleScholarArticles-cli':
         from crawler.googleScholarArticles import GoogleScholarArticles
         crawler = GoogleScholarArticles
 
@@ -27,8 +26,6 @@ def create_crawler_and_extract(user_data, desired_crawler):
 
 
 class Crawler(object):
-    # Disable urllib3 insecure connection warnings
-    urllib3.disable_warnings()
     crawler_id = 'generalCrawler'
 
     # Extraction class to get the data user = system user
@@ -44,15 +41,26 @@ class Crawler(object):
 
         # Create the temp directory
         os.makedirs(os.path.dirname(self.tempDir), exist_ok=True)
-        self.extractionZip = os.path.join(directory,
-                                          'storage/extraction/' + self.crawler_id + '-' + user_data['id'] + '-' +
-                                          datetime.datetime.now().strftime('%Y%m%d'))
+        self.extractionZip = os.path.join(directory, 'storage/extraction/' + self.crawler_id + '-' + user_data['id'] +
+                                          '-' + str(datetime.datetime.now()))
+
+    # Clean the temp files before quitting
+    def __del__(self):
+        self.delete_temp_file()
+
+    # Zip the downloaded files and delete de temp files dir
+    def delete_temp_file(self):
+        shutil.make_archive(self.extractionZip, 'zip', self.tempDir)
+        shutil.rmtree(self.tempDir, ignore_errors=True)
+
+    def crawler_extract_process(self):
+        pass
 
     # Override this method to make the data extraction
     def data_extraction(self):
         pass
 
-    # Override this method to make the data extraction
+    # Override this method to make the data processing
     def data_process(self, html_source):
         pass
 
@@ -97,12 +105,13 @@ class Crawler(object):
         cookies = parameters['cookies'] if 'cookies' in parameters else None
 
         # Set the request PoolManager
-        proxy = parameters['proxy'] if 'proxy' in parameters else urllib3.PoolManager()
+        proxy = parameters['proxy'] if 'proxy' in parameters else None
 
         # Set the max retries number
         max_retries = parameters['retries'] if 'retries' in parameters else 1
         retries_wait_range = parameters['retries_wait_range'] if 'retries_wait_range' in parameters else [3, 5]
         current_retry = 1
+        html_source = None
 
         # Prepare the desired Request and make the download
         session = Session()
@@ -113,21 +122,30 @@ class Crawler(object):
 
         prepared_request = desired_request.prepare()
 
-        while current_retry <= max_retries:
+        error = {
+            'error': True,
+            'error_message': 'First request',
+        }
+
+        while error['error'] and current_retry <= max_retries:
             html_source = session.send(prepared_request, proxies=proxy)
 
-            # TODO Add a more advanced error check
+            # Check for error after the data download
             error = self.extraction_error_check(html_source)
             if error['error']:
-                parameters['filename'] = parameters['filename'] + 'retry-' + str(max_retries) + '-'
+                if current_retry == max_retries:
+                    filename = 'error-' + parameters['filename']
+                else:
+                    sleep(randint(retries_wait_range[0], retries_wait_range[1]))
+                    filename = 'retry-' + str(current_retry) + '-' + parameters['filename']
+            else:
+                filename = parameters['filename']
 
             # Save the downloaded data into the HDD
-            self.save_source_to_file(html_source, os.path.dirname(self.tempDir) + '/' + parameters['filename'])
+            self.save_source_to_file(html_source, os.path.dirname(self.tempDir) + '/' + filename)
 
             # Increase the request number and sleep a random time from the range
             current_retry = current_retry + 1
-            if error['error'] and current_retry <= max_retries:
-                sleep(randint(retries_wait_range[0], retries_wait_range[1]))
 
         return html_source
 
@@ -143,3 +161,25 @@ class Crawler(object):
             'error': False,
             'error_message': '',
         }
+
+    # Function to iterate through a list of function names to get a String
+    def find_version_text(self, version_list, source, params=None):
+        for version in version_list:
+            function = getattr(self, version)
+
+            text = function(source, params)
+            if isinstance(text, str) and text is not '':
+                return text
+
+        return None
+
+    # Function to iterate through a list of function names to get a List/dictionary
+    def find_version_array(self, version_list, source, params=None):
+        for version in version_list:
+            function = getattr(self, version)
+
+            array = function(source, params)
+            if isinstance(array, (list, dict)) and array:
+                return array
+
+        return None
