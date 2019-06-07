@@ -358,11 +358,11 @@ def api_set_scheduler_job(job_request):
     }
 
     job_id = connect_scheduler().add_scheduled_job(function_name=create_crawler_and_extract,
-                                       func_args={'user_data': session['user'],
-                                                  'desired_crawler': 'googleScholarArticles'},
-                                       user_id=session['user']['id'],
-                                       cron=cron,
-                                       )
+                                                   func_args={'user_data': session['user'],
+                                                              'desired_crawler': 'googleScholarArticles'},
+                                                   user_id=session['user']['id'],
+                                                   cron=cron,
+                                                   )
 
     return api_store_user_job_id(job_id)
 
